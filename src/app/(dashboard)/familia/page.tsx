@@ -68,7 +68,7 @@ export default function FamiliaPage() {
 
   const currentFamily = families[0];
   const familyMembers = members.filter((m) => m.familyId === currentFamily?.id);
-  const totalIncome = familyMembers.reduce((a, b) => a + b.income, 0);
+  const totalIncome = familyMembers.reduce((a, b) => a + Number(b.income), 0);
 
   function resetForm() {
     setForm({ name: "", profile: "adult", income: "" });
@@ -279,11 +279,11 @@ export default function FamiliaPage() {
               <div className="mt-3 space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Renda</span>
-                  <span className="font-medium">R$ {member.income.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                  <span className="font-medium">R$ {Number(member.income).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Participação</span>
-                  <span className="font-medium">{totalIncome > 0 ? Math.round((member.income / totalIncome) * 100) : 0}%</span>
+                  <span className="font-medium">{totalIncome > 0 ? Math.round((Number(member.income) / totalIncome) * 100) : 0}%</span>
                 </div>
               </div>
             </CardContent>

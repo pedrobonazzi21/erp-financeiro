@@ -46,12 +46,12 @@ export function LoginForm() {
       const res = await fetch("/api/auth/[...all]", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", idToken }),
+        body: JSON.stringify({ idToken }),
       })
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || "Erro ao sincronizar conta")
+        throw new Error(data.error || `Erro ${res.status} ao sincronizar conta`)
       }
 
       router.push("/")

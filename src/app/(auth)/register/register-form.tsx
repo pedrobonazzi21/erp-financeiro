@@ -57,12 +57,12 @@ export function RegisterForm() {
       const res = await fetch("/api/auth/[...all]", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "register", idToken, name }),
+        body: JSON.stringify({ idToken, name }),
       })
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || "Erro ao sincronizar conta")
+        throw new Error(data.error || `Erro ${res.status} ao sincronizar conta`)
       }
 
       router.push("/")

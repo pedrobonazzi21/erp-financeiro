@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { incomes, expenses, transfers, investments, debts } from "@/lib/db/schema";
 import { requireAuth, ok } from "@/lib/api-helpers";
 
@@ -9,11 +9,11 @@ export async function GET(request: NextRequest) {
     await requireAuth(request);
 
     const [incomeRows, expenseRows, transferRows, investmentRows, debtRows] = await Promise.all([
-      db.select().from(incomes).orderBy(incomes.createdAt),
-      db.select().from(expenses).orderBy(expenses.createdAt),
-      db.select().from(transfers).orderBy(transfers.createdAt),
-      db.select().from(investments).orderBy(investments.createdAt),
-      db.select().from(debts).orderBy(debts.createdAt),
+      getDb().select().from(incomes).orderBy(incomes.createdAt),
+      getDb().select().from(expenses).orderBy(expenses.createdAt),
+      getDb().select().from(transfers).orderBy(transfers.createdAt),
+      getDb().select().from(investments).orderBy(investments.createdAt),
+      getDb().select().from(debts).orderBy(debts.createdAt),
     ]);
 
     const mapped: Array<{

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { bankAccounts } from "@/lib/db/schema";
 import { requireAuth, ok, created, badRequest, serverError } from "@/lib/api-helpers";
 import { eq } from "drizzle-orm";
@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(request);
-    const all = await db.select().from(bankAccounts).orderBy(bankAccounts.bank);
+    const all = await getDb().select().from(bankAccounts).orderBy(bankAccounts.bank);
     return ok(all);
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth(request);
     const body = await request.json();
-    const [item] = await db.insert(bankAccounts).values({
+    const [item] = await getDb().insert(bankAccounts).values({
       id: crypto.randomUUID(),
       bank: body.bank,
       agency: body.agency,

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { installments } from "@/lib/db/schema";
 import { requireAuth, ok, noContent, notFound, badRequest, serverError } from "@/lib/api-helpers";
 import { eq } from "drizzle-orm";
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     await requireAuth(request);
     const { id } = await params;
-    const [item] = await db.select().from(installments).where(eq(installments.id, id));
+    const [item] = await getDb().select().from(installments).where(eq(installments.id, id));
     if (!item) return notFound();
     return ok(item);
   } catch (e) {
@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await requireAuth(request);
     const { id } = await params;
     const body = await request.json();
-    const [item] = await db.update(installments).set({
+    const [item] = await getDb().update(installments).set({
       description: body.description,
       totalAmount: body.totalAmount,
       installmentAmount: body.installmentAmount,
@@ -50,7 +50,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     await requireAuth(request);
     const { id } = await params;
-    const [item] = await db.delete(installments).where(eq(installments.id, id)).returning();
+    const [item] = await getDb().delete(installments).where(eq(installments.id, id)).returning();
     if (!item) return notFound();
     return noContent();
   } catch (e) {

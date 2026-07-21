@@ -22,55 +22,89 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, Wallet, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Wallet, AlertTriangle, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 
 interface BudgetItem {
   id: string;
   category: string;
+  categoryId: string;
   limit: number;
   spent: number;
   month: number;
   year: number;
+  familyId: string;
+}
+
+interface Family {
+  id: string;
+  name: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 const currentMonth = 7;
 const currentYear = 2026;
 
-const fallbackCategories = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Assinaturas", "Impostos", "Pets", "Presentes"];
-
 export default function OrcamentoPage() {
   const { data: budgets, loading, error, create, update, remove } = useApi<BudgetItem>('/api/budgets');
-  const { data: apiCategories } = useApi<{ id: string; name: string }>('/api/categories');
-  const categories = apiCategories.length > 0 ? apiCategories.map((c) => c.name) : fallbackCategories;
+  const { data: families, loading: loadingFamilies } = useApi<Family>('/api/families');
+  const { data: apiCategories } = useApi<Category>('/api/categories');
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ category: categories[0], limit: "" });
+  const [form, setForm] = useState({ categoryId: "", limit: "" });
 
-  const totalLimit = budgets.reduce((a, b) => a + b.limit, 0);
-  const totalSpent = budgets.reduce((a, b) => a + b.spent, 0);
+  const currentFamily = families[0];
+  const familyBudgets = budgets.filter((b) => b.familyId === currentFamily?.id);
+  const categories = apiCategories.map((c) => ({ id: c.id, name: c.name }));
+
+  const defaultCategoryId = categories[0]?.id || "";
+
+  const totalLimit = familyBudgets.reduce((a, b) => a + b.limit, 0);
+  const totalSpent = familyBudgets.reduce((a, b) => a + b.spent, 0);
 
   function resetForm() {
-    setForm({ category: categories[0], limit: "" });
+    setForm({ categoryId: defaultCategoryId, limit: "" });
     setEditingId(null);
     setOpen(false);
   }
 
   function handleEdit(item: BudgetItem) {
     setEditingId(item.id);
-    setForm({ category: item.category, limit: String(item.limit) });
+    setForm({ categoryId: item.categoryId, limit: String(item.limit) });
     setOpen(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.limit) return;
-    if (editingId) {
-      update(editingId, { category: form.category, limit: Number(form.limit) });
-    } else {
-      create({ category: form.category, limit: Number(form.limit), spent: 0, month: currentMonth, year: currentYear });
+    if (!currentFamily) {
+      alert("Crie uma família primeiro em Família > Nova Família");
+      return;
     }
-    resetForm();
+
+    const payload: any = {
+      categoryId: form.categoryId,
+      limit: Number(form.limit),
+      spent: 0,
+      month: currentMonth,
+      year: currentYear,
+      familyId: currentFamily.id,
+    };
+
+    try {
+      if (editingId) {
+        await update(editingId, payload);
+      } else {
+        await create(payload);
+      }
+      resetForm();
+    } catch (e: any) {
+      alert(e.message);
+    }
   }
 
   const usageColor = (spent: number, limit: number) => {
@@ -80,12 +114,39 @@ export default function OrcamentoPage() {
     return "bg-green-500";
   };
 
+  const catName = (id: string) => categories.find((c) => c.id === id)?.name || id;
+
+  if (!loadingFamilies && families.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Orçamento</h1>
+          <p className="text-muted-foreground">Defina limites por categoria e acompanhe seus gastos.</p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 p-8">
+            <Home className="h-12 w-12 text-muted-foreground" />
+            <p className="text-lg font-medium">Nenhuma família encontrada</p>
+            <p className="text-sm text-muted-foreground text-center max-w-md">
+              Crie uma família primeiro na página Família para poder criar orçamentos.
+            </p>
+            <a href="/familia" className="inline-flex items-center justify-center h-10 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90">
+              Ir para Família
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Orçamento</h1>
-          <p className="text-muted-foreground">Defina limites por categoria e acompanhe seus gastos.</p>
+          <p className="text-muted-foreground">
+            {currentFamily && `Família ${currentFamily.name} — `}Defina limites por categoria.
+          </p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
           <DialogTrigger render={<Button />}>
@@ -96,10 +157,10 @@ export default function OrcamentoPage() {
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label>Categoria</Label>
-                <Select value={form.category} onValueChange={(v) => v && setForm({ ...form, category: v })}>
+                <Select value={form.categoryId} onValueChange={(v) => v && setForm({ ...form, categoryId: v })}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -145,7 +206,7 @@ export default function OrcamentoPage() {
       {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
       {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="space-y-3">
-        {budgets.map((item) => {
+        {familyBudgets.map((item) => {
           const pct = item.limit > 0 ? Math.round((item.spent / item.limit) * 100) : 0;
           const remaining = item.limit - item.spent;
           return (
@@ -153,7 +214,7 @@ export default function OrcamentoPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{item.category}</span>
+                    <span className="font-medium">{catName(item.categoryId)}</span>
                     {pct >= 80 && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
                   </div>
                   <div className="flex items-center gap-2">

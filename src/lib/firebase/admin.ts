@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library"
 let _client: OAuth2Client | null = null
 let _projectId: string | null = null
 
-function getConfig() {
+function getConfig(): { client: OAuth2Client; projectId: string } {
   if (_client && _projectId) return { client: _client, projectId: _projectId }
 
   const json = process.env.FIREBASE_SERVICE_ACCOUNT
@@ -21,7 +21,7 @@ function getConfig() {
 
   _projectId = sa.project_id
   _client = new OAuth2Client(sa.client_email)
-  return { client: _client, projectId: _projectId }
+  return { client: _client, projectId: _projectId as string }
 }
 
 export async function verifyIdToken(idToken: string) {

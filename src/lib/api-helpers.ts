@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { adminAuth } from "@/lib/firebase/admin"
+import { getAdminAuth } from "@/lib/firebase/admin"
 
 export async function requireAuth(request: NextRequest): Promise<string> {
   try {
@@ -7,7 +7,7 @@ export async function requireAuth(request: NextRequest): Promise<string> {
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized")
 
     const token = authHeader.slice(7)
-    const decoded = await adminAuth.verifyIdToken(token)
+    const decoded = await getAdminAuth().verifyIdToken(token)
     return decoded.uid
   } catch {
     throw new Error("Unauthorized")

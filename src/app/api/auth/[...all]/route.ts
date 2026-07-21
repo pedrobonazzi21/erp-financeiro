@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { adminAuth } from "@/lib/firebase/admin"
+import { getAdminAuth } from "@/lib/firebase/admin"
 import { db } from "@/lib/db"
 import { users } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     const { action, idToken, name } = body
 
     if (action === "login" || action === "register") {
+      const adminAuth = getAdminAuth()
       const decoded = await adminAuth.verifyIdToken(idToken)
       const existingUser = await db.select().from(users).where(eq(users.id, decoded.uid)).limit(1)
 

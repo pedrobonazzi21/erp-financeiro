@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,8 @@ import {
   User,
   Pencil,
   Trash2,
+  Home,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
@@ -40,6 +42,12 @@ interface Member {
   photo: string;
   profile: Profile;
   income: number;
+  familyId: string;
+}
+
+interface Family {
+  id: string;
+  name: string;
 }
 
 const profileConfig: Record<Profile, { label: string; color: string }> = {
@@ -49,37 +57,103 @@ const profileConfig: Record<Profile, { label: string; color: string }> = {
 };
 
 export default function FamiliaPage() {
-  const { data: members, loading, error, create, update, remove } = useApi<Member>('/api/family-members');
-  const [open, setOpen] = useState(false);
+  const { data: members, loading, error, create, update, remove, refresh: refreshMembers } = useApi<Member>('/api/family-members');
+  const { data: families, loading: loadingFamilies, create: createFamily } = useApi<Family>('/api/families');
+
+  const [familyOpen, setFamilyOpen] = useState(false);
+  const [memberOpen, setMemberOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [familyName, setFamilyName] = useState("");
   const [form, setForm] = useState({ name: "", profile: "adult" as Profile, income: "" });
 
-  const totalIncome = members.reduce((a, b) => a + b.income, 0);
+  const currentFamily = families[0];
+  const familyMembers = members.filter((m) => m.familyId === currentFamily?.id);
+  const totalIncome = familyMembers.reduce((a, b) => a + b.income, 0);
 
   function resetForm() {
     setForm({ name: "", profile: "adult", income: "" });
     setEditingId(null);
-    setOpen(false);
+    setMemberOpen(false);
   }
 
   function handleEdit(member: Member) {
     setEditingId(member.id);
     setForm({ name: member.name, profile: member.profile, income: String(member.income) });
-    setOpen(true);
+    setMemberOpen(true);
   }
 
-  function handleSave() {
+  async function handleCreateFamily() {
+    if (!familyName) return;
+    try {
+      await createFamily({ name: familyName } as any);
+      setFamilyName("");
+      setFamilyOpen(false);
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
+  async function handleSave() {
     if (!form.name) return;
-    const member: Member = {
+    if (!currentFamily) return;
+
+    const member: any = {
       id: editingId || crypto.randomUUID(),
       name: form.name,
       photo: "",
       profile: form.profile,
       income: Number(form.income) || 0,
+      familyId: currentFamily.id,
     };
-    if (editingId) update(editingId, member);
-    else create(member);
-    resetForm();
+
+    try {
+      if (editingId) {
+        await update(editingId, member);
+      } else {
+        await create(member);
+      }
+      resetForm();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
+  if (!loadingFamilies && families.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Família</h1>
+          <p className="text-muted-foreground">Crie sua família para começar a gerenciar os membros.</p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 p-8">
+            <Home className="h-12 w-12 text-muted-foreground" />
+            <p className="text-lg font-medium">Nenhuma família encontrada</p>
+            <p className="text-sm text-muted-foreground text-center max-w-md">
+              Crie uma família para adicionar membros e organizar suas finanças.
+            </p>
+            <Dialog open={familyOpen} onOpenChange={setFamilyOpen}>
+              <DialogTrigger render={<Button />}>
+                <Plus className="mr-2 h-4 w-4" /> Criar família
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Criar família</DialogTitle></DialogHeader>
+                <div className="space-y-4 py-2">
+                  <div className="space-y-2">
+                    <Label>Nome da família</Label>
+                    <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="Ex: Silva" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+                  <Button onClick={handleCreateFamily}>Criar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -87,41 +161,63 @@ export default function FamiliaPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Família</h1>
-          <p className="text-muted-foreground">Gerencie os membros da família e seus perfis financeiros.</p>
+          <p className="text-muted-foreground">
+            {currentFamily && `Família ${currentFamily.name} — `}Gerencie os membros e perfis financeiros.
+          </p>
         </div>
-        <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 h-4 w-4" /> Novo membro
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editingId ? "Editar" : "Novo"} membro</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label>Nome</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome do membro" />
+        <div className="flex gap-2">
+          <Dialog open={familyOpen} onOpenChange={setFamilyOpen}>
+            <DialogTrigger render={<Button variant="outline" />}>
+              <Home className="mr-2 h-4 w-4" /> Nova família
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Nova família</DialogTitle></DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Nome da família</Label>
+                  <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="Ex: Silva" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Perfil</Label>
-                <Select value={form.profile} onValueChange={(v) => v && setForm({ ...form, profile: v as Profile })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="adult">Adulto</SelectItem>
-                    <SelectItem value="teen">Adolescente</SelectItem>
-                    <SelectItem value="child">Criança</SelectItem>
-                  </SelectContent>
-                </Select>
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+                <Button onClick={handleCreateFamily}>Criar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={memberOpen} onOpenChange={(o) => { if (!o) resetForm(); setMemberOpen(o); }}>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" /> Novo membro
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>{editingId ? "Editar" : "Novo"} membro</DialogTitle></DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome do membro" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Perfil</Label>
+                  <Select value={form.profile} onValueChange={(v) => v && setForm({ ...form, profile: v as Profile })}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="adult">Adulto</SelectItem>
+                      <SelectItem value="teen">Adolescente</SelectItem>
+                      <SelectItem value="child">Criança</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Renda (R$)</Label>
+                  <Input type="number" step="0.01" value={form.income} onChange={(e) => setForm({ ...form, income: e.target.value })} placeholder="0,00" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Renda (R$)</Label>
-                <Input type="number" step="0.01" value={form.income} onChange={(e) => setForm({ ...form, income: e.target.value })} placeholder="0,00" />
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-              <Button onClick={handleSave}>Salvar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
+                <Button onClick={handleSave}>Salvar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -131,7 +227,7 @@ export default function FamiliaPage() {
               <span className="text-sm text-muted-foreground">Membros</span>
               <Users className="h-4 w-4 text-primary" />
             </div>
-            <p className="mt-1 text-2xl font-bold">{members.length}</p>
+            <p className="mt-1 text-2xl font-bold">{familyMembers.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -144,16 +240,21 @@ export default function FamiliaPage() {
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Renda média</span>
             <p className="mt-1 text-2xl font-bold">
-              R$ {(members.length > 0 ? totalIncome / members.length : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              R$ {(familyMembers.length > 0 ? totalIncome / familyMembers.length : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </p>
           </CardContent>
         </Card>
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-500">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {members.map((member) => (
+        {familyMembers.map((member) => (
           <Card key={member.id}>
             <CardContent className="p-4">
               <div className="flex items-start justify-between">

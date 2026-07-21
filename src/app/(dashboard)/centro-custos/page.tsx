@@ -14,20 +14,38 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Landmark, Pencil, Trash2 } from "lucide-react";
+import { Plus, Landmark, Pencil, Trash2, AlertCircle, Home } from "lucide-react";
 
 interface CostCenter {
   id: string;
   name: string;
   description: string;
+  familyId: string;
+}
+
+interface Family {
+  id: string;
+  name: string;
 }
 
 export default function CentroCustosPage() {
   const { data: centers, loading, error, create, update, remove } = useApi<CostCenter>('/api/cost-centers');
+  const { data: families, loading: loadingFamilies, create: createFamily } = useApi<Family>('/api/families');
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", description: "" });
+
+  const currentFamily = families[0];
+
+  const familyCenters = centers.filter((c) => c.familyId === currentFamily?.id);
 
   function resetForm() {
     setForm({ name: "", description: "" });
@@ -43,12 +61,49 @@ export default function CentroCustosPage() {
 
   async function handleSave() {
     if (!form.name) return;
-    if (editingId) {
-      await update(editingId, form);
-    } else {
-      await create(form);
+    if (!currentFamily) {
+      alert("Crie uma família primeiro em Família > Nova Família");
+      return;
     }
-    resetForm();
+
+    const payload = {
+      ...form,
+      familyId: currentFamily.id,
+    };
+
+    try {
+      if (editingId) {
+        await update(editingId, payload);
+      } else {
+        await create(payload);
+      }
+      resetForm();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
+  if (!loadingFamilies && families.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Centro de Custos</h1>
+          <p className="text-muted-foreground">Separe gastos por finalidade: casa, pessoal, filhos.</p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 p-8">
+            <Home className="h-12 w-12 text-muted-foreground" />
+            <p className="text-lg font-medium">Nenhuma família encontrada</p>
+            <p className="text-sm text-muted-foreground text-center max-w-md">
+              Crie uma família primeiro na página Família para poder criar centros de custo.
+            </p>
+            <a href="/familia" className="inline-flex items-center justify-center h-10 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90">
+              Ir para Família
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -56,7 +111,9 @@ export default function CentroCustosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Centro de Custos</h1>
-          <p className="text-muted-foreground">Separe gastos por finalidade: casa, pessoal, filhos.</p>
+          <p className="text-muted-foreground">
+            {currentFamily && `Família ${currentFamily.name} — `}Separe gastos por finalidade.
+          </p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
           <DialogTrigger render={<Button />}>
@@ -83,7 +140,7 @@ export default function CentroCustosPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {centers.map((cc) => (
+        {familyCenters.map((cc) => (
           <Card key={cc.id}>
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
@@ -105,8 +162,18 @@ export default function CentroCustosPage() {
           </Card>
         ))}
       </div>
-      {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <AlertCircle className="h-4 w-4" />
+          Carregando...
+        </div>
+      )}
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-500">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
     </div>
   );
 }

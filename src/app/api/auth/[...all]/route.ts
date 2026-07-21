@@ -9,29 +9,39 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { action, idToken, name } = body
 
-    if (action === "login" || action === "register") {
-      const adminAuth = getAdminAuth()
-      const decoded = await adminAuth.verifyIdToken(idToken)
-      const existingUser = await db.select().from(users).where(eq(users.id, decoded.uid)).limit(1)
-
-      if (existingUser.length === 0) {
-        await db.insert(users).values({
-          id: decoded.uid,
-          name: name || decoded.name || "Usuário",
-          email: decoded.email!,
-          emailVerified: true,
-          image: decoded.picture || null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-      }
-
-      return NextResponse.json({ uid: decoded.uid, email: decoded.email })
+    if (!idToken) {
+      return NextResponse.json({ error: "Token não fornecido" }, { status: 400 })
     }
 
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 })
-  } catch (error) {
-    console.error("Auth error:", error)
-    return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
+    const adminAuth = getAdminAuth()
+    const decoded = await adminAuth.verifyIdToken(idToken)
+
+    const existingUser = await db.select().from(users).where(eq(users.id, decoded.uid)).limit(1)
+
+    if (existingUser.length === 0) {
+      await db.insert(users).values({
+        id: decoded.uid,
+        name: name || decoded.name || "Usuário",
+        email: decoded.email!,
+        emailVerified: true,
+        image: decoded.picture || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    }
+
+    return NextResponse.json({ uid: decoded.uid, email: decoded.email })
+  } catch (error: any) {
+    console.error("Auth error details:", {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack?.split("\n").slice(0, 3).join("\n"),
+    })
+
+    const status = error?.code === "app/invalid-credential" ? 500 : 401
+    return NextResponse.json(
+      { error: error?.message || "Falha na autenticação" },
+      { status }
+    )
   }
 }

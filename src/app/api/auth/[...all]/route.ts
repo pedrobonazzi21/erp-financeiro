@@ -1,35 +1,27 @@
 import { NextRequest, NextResponse } from "next/server"
+import { verifyIdToken } from "@/lib/firebase/admin"
+import { getDb } from "@/lib/db"
+import { users } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 
 export async function GET() {
-  const checks: Record<string, any> = {}
-
-  checks.env = {
-    DATABASE_URL: !!process.env.DATABASE_URL,
-    FIREBASE_SERVICE_ACCOUNT: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+  const checks: Record<string, any> = {
+    env: {
+      DATABASE_URL: !!process.env.DATABASE_URL,
+      FIREBASE_SERVICE_ACCOUNT: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+    },
   }
 
   try {
-    const mod = await import("@/lib/firebase/admin")
-    checks.firebaseAdmin = "imported ok"
-    try {
-      mod.getAdminAuth()
-      checks.firebaseInit = "ok"
-    } catch (e: any) {
-      checks.firebaseInit = e?.message
-    }
+    const { verifyIdToken } = await import("@/lib/firebase/admin")
+    checks.firebase = "ok"
   } catch (e: any) {
-    checks.firebaseAdmin = e?.message
+    checks.firebase = e?.message
   }
 
   try {
-    const mod = await import("@/lib/db")
-    checks.db = "imported ok"
-    try {
-      mod.getDb()
-      checks.dbInit = "ok"
-    } catch (e: any) {
-      checks.dbInit = e?.message
-    }
+    const { getDb } = await import("@/lib/db")
+    checks.db = "ok"
   } catch (e: any) {
     checks.db = e?.message
   }
@@ -46,14 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Token não fornecido" }, { status: 400 })
     }
 
-    const { getAdminAuth } = await import("@/lib/firebase/admin")
-    const adminAuth = getAdminAuth()
-    const decoded = await adminAuth.verifyIdToken(idToken)
-
-    const { getDb } = await import("@/lib/db")
+    const decoded = await verifyIdToken(idToken)
     const db = getDb()
-    const { users } = await import("@/lib/db/schema")
-    const { eq } = await import("drizzle-orm")
 
     const existingUser = await db.select().from(users).where(eq(users.id, decoded.uid)).limit(1)
 
@@ -61,7 +47,7 @@ export async function POST(request: NextRequest) {
       await db.insert(users).values({
         id: decoded.uid,
         name: name || decoded.name || "Usuário",
-        email: decoded.email!,
+        email: decoded.email || "",
         emailVerified: true,
         image: decoded.picture || null,
         createdAt: new Date(),
@@ -71,9 +57,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ uid: decoded.uid, email: decoded.email })
   } catch (error: any) {
-    console.error("Auth error:", error?.message, error?.code)
+    console.error("Auth error:", error?.message)
     return NextResponse.json(
-      { error: error?.message || "Erro desconhecido", code: error?.code || null },
+      { error: error?.message || "Erro desconhecido" },
       { status: 500 }
     )
   }

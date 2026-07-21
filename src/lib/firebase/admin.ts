@@ -1,30 +1,43 @@
-import { cert, getApps, initializeApp } from "firebase-admin/app"
-import { getAuth } from "firebase-admin/auth"
+import { OAuth2Client } from "google-auth-library"
 
-function getAdminApp() {
-  if (getApps().length > 0) return getApps()[0]
+let _client: OAuth2Client | null = null
+let _projectId: string | null = null
+
+function getConfig() {
+  if (_client && _projectId) return { client: _client, projectId: _projectId }
 
   const json = process.env.FIREBASE_SERVICE_ACCOUNT
   if (!json) {
-    throw new Error(
-      "FIREBASE_SERVICE_ACCOUNT not set. Copy the entire service account JSON into this variable."
-    )
+    throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable is not set")
   }
 
-  let serviceAccount: Record<string, string>
+  let sa: any
   try {
-    serviceAccount = JSON.parse(json)
+    sa = JSON.parse(json)
   } catch {
-    // If JSON parse fails, try base64
     const decoded = Buffer.from(json, "base64").toString("utf-8")
-    serviceAccount = JSON.parse(decoded)
+    sa = JSON.parse(decoded)
   }
 
-  return initializeApp({ credential: cert(serviceAccount as any) })
+  _projectId = sa.project_id
+  _client = new OAuth2Client(sa.client_email)
+  return { client: _client, projectId: _projectId }
 }
 
-function getAdminAuth() {
-  return getAuth(getAdminApp())
+export async function verifyIdToken(idToken: string) {
+  const { client, projectId } = getConfig()
+
+  const ticket = await client.verifyIdToken({
+    idToken,
+    audience: projectId,
+  })
+
+  const payload = ticket.getPayload()
+  if (!payload || !payload.sub) {
+    throw new Error("Invalid token payload")
+  }
+
+  return { uid: payload.sub, email: payload.email, name: payload.name, picture: payload.picture }
 }
 
-export { getAdminApp, getAdminAuth }
+export { getConfig as getAdminApp }

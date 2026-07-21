@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,10 +14,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Camera } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export function PerfilForm() {
-  const [name, setName] = useState("Carlos Silva");
-  const [email, setEmail] = useState("carlos@email.com");
+  const { user, loading } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      setName(user.displayName || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+
+  if (loading) return null;
+  if (!user) return null;
+
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "U";
 
   return (
     <div className="space-y-6">
@@ -27,7 +46,7 @@ export function PerfilForm() {
         </CardHeader>
         <CardContent className="flex items-center gap-4">
           <Avatar className="h-16 w-16">
-            <AvatarFallback className="text-lg">CS</AvatarFallback>
+            <AvatarFallback className="text-lg">{initials}</AvatarFallback>
           </Avatar>
           <Button variant="outline" size="sm">
             <Camera className="mr-2 h-4 w-4" />

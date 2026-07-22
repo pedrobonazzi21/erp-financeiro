@@ -57,8 +57,8 @@ export default function DividasPage() {
     interestRate: "0", installmentsTotal: "1", installmentsRemaining: "1", member: members[0],
   });
 
-  const totalRemaining = debts.reduce((a, b) => a + b.remainingAmount, 0);
-  const totalOriginal = debts.reduce((a, b) => a + b.totalAmount, 0);
+  const totalRemaining = debts.reduce((a, b) => a + Number(b.remainingAmount), 0);
+  const totalOriginal = debts.reduce((a, b) => a + Number(b.totalAmount), 0);
   const totalPaid = totalOriginal - totalRemaining;
   const pctPaid = totalOriginal > 0 ? Math.round((totalPaid / totalOriginal) * 100) : 0;
 

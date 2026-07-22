@@ -112,12 +112,12 @@ export default function ReceitasPage() {
     return data
   }, [incomes, search, statusFilter, sortField, sortDir, categoryMap])
 
-  const totalReceived = incomes.filter((i) => i.status === "received").reduce((a, b) => a + b.amount, 0)
-  const totalPending = incomes.filter((i) => i.status === "pending").reduce((a, b) => a + b.amount, 0)
+  const totalReceived = incomes.filter((i) => i.status === "received").reduce((a, b) => a + Number(b.amount), 0)
+  const totalPending = incomes.filter((i) => i.status === "pending").reduce((a, b) => a + Number(b.amount), 0)
   const totalThisMonth = useMemo(
     () => incomes
       .filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey))
-      .reduce((a, b) => a + b.amount, 0),
+      .reduce((a, b) => a + Number(b.amount), 0),
     [incomes, monthKey]
   )
 

@@ -66,8 +66,8 @@ export default function OrcamentoPage() {
 
   const defaultCategoryId = categories[0]?.id || "";
 
-  const totalLimit = familyBudgets.reduce((a, b) => a + b.limit, 0);
-  const totalSpent = familyBudgets.reduce((a, b) => a + b.spent, 0);
+  const totalLimit = familyBudgets.reduce((a, b) => a + Number(b.limit), 0);
+  const totalSpent = familyBudgets.reduce((a, b) => a + Number(b.spent), 0);
 
   function resetForm() {
     setForm({ categoryId: defaultCategoryId, limit: "" });

@@ -75,7 +75,7 @@ export default function ContasRecorrentesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0] });
 
-  const totalMonthly = bills.filter((b) => b.frequency === "monthly" && b.status === "active").reduce((a, b) => a + b.amount, 0);
+  const totalMonthly = bills.filter((b) => b.frequency === "monthly" && b.status === "active").reduce((a, b) => a + Number(b.amount), 0);
 
   function resetForm() {
     setForm({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly", autoGenerate: true, startDate: new Date().toISOString().split("T")[0] });

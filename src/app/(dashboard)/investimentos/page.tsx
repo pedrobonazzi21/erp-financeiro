@@ -72,8 +72,8 @@ export default function InvestimentosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ type: "cdb" as InvestmentType, name: "", amount: "", profitability: "0", member: members[0] });
 
-  const totalAmount = investments.reduce((a, b) => a + b.amount, 0);
-  const avgProfit = investments.length > 0 ? investments.reduce((a, b) => a + b.profitability, 0) / investments.length : 0;
+  const totalAmount = investments.reduce((a, b) => a + Number(b.amount), 0);
+  const avgProfit = investments.length > 0 ? investments.reduce((a, b) => a + Number(b.profitability), 0) / investments.length : 0;
 
   function resetForm() {
     setForm({ type: "cdb", name: "", amount: "", profitability: "0", member: members[0] });

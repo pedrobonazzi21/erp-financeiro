@@ -130,11 +130,11 @@ export default function DespesasPage() {
   const totalThisMonth = useMemo(
     () => expenses
       .filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey))
-      .reduce((a, b) => a + b.amount, 0),
+      .reduce((a, b) => a + Number(b.amount), 0),
     [expenses, monthKey]
   )
-  const totalPaid = expenses.filter((e) => e.status === "paid").reduce((a, b) => a + b.amount, 0)
-  const totalPending = expenses.filter((e) => e.status === "pending" || e.status === "overdue").reduce((a, b) => a + b.amount, 0)
+  const totalPaid = expenses.filter((e) => e.status === "paid").reduce((a, b) => a + Number(b.amount), 0)
+  const totalPending = expenses.filter((e) => e.status === "pending" || e.status === "overdue").reduce((a, b) => a + Number(b.amount), 0)
 
   function toggleSort(field: "paidDate" | "amount") {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"))

@@ -109,7 +109,7 @@ export default function ContasPage() {
     }
   }, [banks]);
 
-  const totalBalance = accounts.reduce((a, b) => a + b.balance, 0);
+  const totalBalance = accounts.reduce((a, b) => a + Number(b.balance), 0);
 
   function getMemberName(id: string) {
     return familyMembers.find((m) => m.id === id)?.name || id;

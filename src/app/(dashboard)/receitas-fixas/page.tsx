@@ -99,7 +99,7 @@ export default function ReceitasFixasPage() {
 
   const totalMonthly = incomes
     .filter((i) => i.active)
-    .reduce((a, b) => a + b.amount, 0)
+    .reduce((a, b) => a + Number(b.amount), 0)
 
   function resetForm() {
     setForm({

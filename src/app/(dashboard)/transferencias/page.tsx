@@ -63,7 +63,7 @@ export default function TransferenciasPage() {
   const [externalDest, setExternalDest] = useState(false);
   const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], fromAccountId: "", toAccountId: "", externalTo: "", amount: "", description: "", memberId: "" });
 
-  const totalTransferred = transfers.reduce((a, b) => a + b.amount, 0);
+  const totalTransferred = transfers.reduce((a, b) => a + Number(b.amount), 0);
 
   function getAccountName(id: string) {
     return accounts.find((a) => a.id === id)?.bank || id;

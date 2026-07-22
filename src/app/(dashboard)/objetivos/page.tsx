@@ -43,8 +43,8 @@ export default function ObjetivosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", target: "", saved: "0", deadline: "", member: members[0] });
 
-  const totalSaved = goals.reduce((a, b) => a + b.saved, 0);
-  const totalTarget = goals.reduce((a, b) => a + b.target, 0);
+  const totalSaved = goals.reduce((a, b) => a + Number(b.saved), 0);
+  const totalTarget = goals.reduce((a, b) => a + Number(b.target), 0);
 
   function resetForm() {
     setForm({ name: "", target: "", saved: "0", deadline: "", member: members[0] });

@@ -80,9 +80,8 @@ export default function ProjecaoFinanceiraPage() {
   const projection: ProjectedMonth[] = useMemo(() => {
     const result: ProjectedMonth[] = []
     let cumulative = 0
-    for (let i = 0; i < 6; i++) {
-      const m = (currentMonth + i) % 12
-      const y = currentYear + Math.floor((currentMonth + i) / 12)
+    for (let m = 6; m < 12; m++) {
+      const y = currentYear
       const balance = projectedIncome - projectedExpense
       cumulative += balance
       result.push({
@@ -94,7 +93,7 @@ export default function ProjecaoFinanceiraPage() {
       })
     }
     return result
-  }, [projectedIncome, projectedExpense, currentMonth, currentYear])
+  }, [projectedIncome, projectedExpense, currentYear])
 
   const totalIncome = projection.reduce((a, b) => a + b.income, 0)
   const totalExpense = projection.reduce((a, b) => a + b.expense, 0)

@@ -107,6 +107,7 @@ export default function CartoesPage() {
     const payload = {
       name: form.name,
       limit: Number(form.limit),
+      available: Number(form.limit),
       bestDay: Number(form.bestDay),
       dueDay: Number(form.dueDay),
       closingDay: Number(form.closingDay),
@@ -258,7 +259,7 @@ export default function CartoesPage() {
 
                 <div className="mt-3 flex items-center justify-between">
                   <p className="text-sm font-medium">
-                    Fatura atual: <span className="text-red-600">R$ {card.currentInvoice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    Fatura atual: <span className="text-red-600">R$ {card.used.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                   </p>
                   <Button variant="ghost" size="sm" onClick={() => { setInvoiceCard(card); setInvoiceOpen(true); }}>
                     <FileText className="mr-1 h-3 w-3" /> Fatura
@@ -285,7 +286,7 @@ export default function CartoesPage() {
               <div className="flex justify-between text-sm">
                 <span>Fatura atual</span>
                 <span className="font-bold text-lg text-red-600">
-                  R$ {invoiceCard.currentInvoice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  R$ {invoiceCard.used.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">

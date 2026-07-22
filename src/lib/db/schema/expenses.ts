@@ -22,6 +22,8 @@ export const expenses = pgTable('expense', {
   description: text('description'),
   receipt: text('receipt'),
   recurring: boolean('recurring').notNull().default(false),
+  sourceType: text('source_type'),
+  sourceId: text('source_id'),
   splitMembers: jsonb('split_members'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

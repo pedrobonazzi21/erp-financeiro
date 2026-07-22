@@ -28,8 +28,10 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, ArrowLeftRight, Trash2 } from "lucide-react";
+import { Plus, ArrowLeftRight, Trash2, ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 
 interface Transfer {
@@ -40,6 +42,7 @@ interface Transfer {
   amount: number;
   description: string;
   memberId: string;
+  externalTo: string | null;
 }
 
 interface BankAccount {
@@ -57,7 +60,8 @@ export default function TransferenciasPage() {
   const { data: accounts } = useApi<BankAccount>('/api/bank-accounts');
   const { data: familyMembers } = useApi<FamilyMember>('/api/family-members');
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], fromAccountId: accounts[0]?.id || "", toAccountId: accounts[1]?.id || "", amount: "", description: "", memberId: "" });
+  const [externalDest, setExternalDest] = useState(false);
+  const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], fromAccountId: "", toAccountId: "", externalTo: "", amount: "", description: "", memberId: "" });
 
   const totalTransferred = transfers.reduce((a, b) => a + b.amount, 0);
 
@@ -70,10 +74,26 @@ export default function TransferenciasPage() {
   }
 
   function handleSave() {
-    if (!form.amount || form.fromAccountId === form.toAccountId) return;
-    create({ ...form, amount: Number(form.amount) });
-    setForm({ date: new Date().toISOString().split("T")[0], fromAccountId: accounts[0]?.id || "", toAccountId: accounts[1]?.id || "", amount: "", description: "", memberId: familyMembers[0]?.id || "" });
+    if (!form.amount || !form.fromAccountId) return;
+    if (!externalDest && form.fromAccountId === form.toAccountId) return;
+    const payload: Record<string, unknown> = {
+      date: form.date,
+      fromAccountId: form.fromAccountId,
+      toAccountId: externalDest ? "" : form.toAccountId,
+      externalTo: externalDest ? form.externalTo : "",
+      amount: Number(form.amount),
+      description: form.description,
+      memberId: form.memberId,
+    };
+    create(payload as any);
+    setForm({ date: new Date().toISOString().split("T")[0], fromAccountId: "", toAccountId: "", externalTo: "", amount: "", description: "", memberId: "" });
+    setExternalDest(false);
     setOpen(false);
+  }
+
+  function resetForm() {
+    setForm({ date: new Date().toISOString().split("T")[0], fromAccountId: accounts[0]?.id || "", toAccountId: "", externalTo: "", amount: "", description: "", memberId: familyMembers[0]?.id || "" });
+    setExternalDest(false);
   }
 
   return (
@@ -86,8 +106,8 @@ export default function TransferenciasPage() {
           <h1 className="text-3xl font-bold tracking-tight">Transferências</h1>
           <p className="text-muted-foreground">Movimentações entre contas bancárias.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button />}>
+        <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
+          <DialogTrigger render={<Button onClick={resetForm} />}>
             <Plus className="mr-2 h-4 w-4" /> Nova transferência
           </DialogTrigger>
           <DialogContent>
@@ -97,26 +117,44 @@ export default function TransferenciasPage() {
                 <Label>Data</Label>
                 <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Da conta</Label>
+                <Select value={form.fromAccountId} onValueChange={(v) => v && setForm({ ...form, fromAccountId: v })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                type="button"
+                variant={externalDest ? "default" : "outline"}
+                size="sm"
+                className="w-full"
+                onClick={() => setExternalDest(!externalDest)}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {externalDest ? "Destino externo" : "Conta externa (fora da família)"}
+              </Button>
+
+              {externalDest ? (
                 <div className="space-y-2">
-                  <Label>Da conta</Label>
-                  <Select value={form.fromAccountId} onValueChange={(v) => v && setForm({ ...form, fromAccountId: v })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label>Destinatário externo</Label>
+                  <Input value={form.externalTo} onChange={(e) => setForm({ ...form, externalTo: e.target.value })} placeholder="Ex: João, Maria, Empresa X" />
                 </div>
+              ) : (
                 <div className="space-y-2">
                   <Label>Para conta</Label>
                   <Select value={form.toAccountId} onValueChange={(v) => v && setForm({ ...form, toAccountId: v })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       {accounts.filter((a) => a.id !== form.fromAccountId).map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Valor (R$)</Label>
                 <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
@@ -128,7 +166,7 @@ export default function TransferenciasPage() {
               <div className="space-y-2">
                 <Label>Responsável</Label>
                   <Select value={form.memberId} onValueChange={(v) => v && setForm({ ...form, memberId: v })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       {familyMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                     </SelectContent>
@@ -184,7 +222,15 @@ export default function TransferenciasPage() {
               <TableRow key={t.id}>
                 <TableCell className="text-muted-foreground">{new Date(t.date).toLocaleDateString("pt-BR")}</TableCell>
                 <TableCell>{getAccountName(t.fromAccountId)}</TableCell>
-                <TableCell>{getAccountName(t.toAccountId)}</TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-1">
+                    {t.externalTo ? (
+                      <><ExternalLink className="h-3 w-3 text-muted-foreground" />{t.externalTo}</>
+                    ) : (
+                      getAccountName(t.toAccountId)
+                    )}
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{t.description}</TableCell>
                 <TableCell className="text-muted-foreground">{getMemberName(t.memberId)}</TableCell>
                 <TableCell className="text-right font-medium tabular-nums text-blue-600">

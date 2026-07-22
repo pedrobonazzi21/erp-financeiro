@@ -20,6 +20,8 @@ export const incomes = pgTable('income', {
   description: text('description'),
   receipt: text('receipt'),
   recurring: boolean('recurring').notNull().default(false),
+  sourceType: text('source_type'),
+  sourceId: text('source_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

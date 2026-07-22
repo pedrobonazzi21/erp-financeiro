@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useApi } from "@/lib/use-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,8 @@ import {
   HandCoins,
   Wallet,
   Trash2,
+  ExternalLink,
+  Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,11 +61,16 @@ interface Transaction {
   date: string;
   type: TransactionType;
   category: string;
+  categoryId: string;
   description: string;
   account: string;
+  accountId: string;
   amount: number;
   status: "confirmed" | "pending" | "cancelled";
   member: string;
+  memberId: string;
+  sourceType: string;
+  sourceId: string;
 }
 
 const typeConfig: Record<TransactionType, { label: string; icon: typeof ArrowUpRight; color: string }> = {
@@ -78,7 +86,12 @@ type SortField = "date" | "amount";
 type SortDir = "asc" | "desc";
 
 export default function LancamentosPage() {
-  const { data: transactions, loading, error } = useApi<Transaction>('/api/transactions');
+  const router = useRouter();
+  const { data: transactions, loading, error, create } = useApi<Transaction>('/api/transactions');
+  const { data: categories } = useApi<{ id: string; name: string; type: string }>('/api/categories');
+  const { data: accounts } = useApi<{ id: string; bank: string }>('/api/bank-accounts');
+  const { data: members } = useApi<{ id: string; name: string }>('/api/family-members');
+
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -86,6 +99,14 @@ export default function LancamentosPage() {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [open, setOpen] = useState(false);
+
+  const [newType, setNewType] = useState("expense");
+  const [newCategoryId, setNewCategoryId] = useState("");
+  const [newAccountId, setNewAccountId] = useState("");
+  const [newMemberId, setNewMemberId] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [newDate, setNewDate] = useState(new Date().toISOString().split("T")[0]);
 
   const filtered = useMemo(() => {
     let data = [...transactions];
@@ -120,10 +141,71 @@ export default function LancamentosPage() {
     }
   }
 
+  const categoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (categories || []).forEach((c) => { map[c.id] = c.name; });
+    return map;
+  }, [categories]);
+  const accountMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (accounts || []).forEach((a) => { map[a.id] = a.bank; });
+    return map;
+  }, [accounts]);
+  const memberMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (members || []).forEach((m) => { map[m.id] = m.name; });
+    return map;
+  }, [members]);
+
   const totalIncome = filtered.filter((t) => t.type === "income").reduce((a, b) => a + b.amount, 0);
   const totalExpense = filtered.filter((t) => t.type === "expense").reduce((a, b) => a + b.amount, 0);
 
-  const members = [...new Set(transactions.map((t) => t.member))];
+  const memberOptions = [...new Set(transactions.map((t) => t.member))];
+
+  const availableCategories = useMemo(
+    () => (categories || []).filter((c) => newType === "income" ? c.type === "income" : c.type === "expense"),
+    [categories, newType]
+  );
+
+  async function handleCreate() {
+    try {
+      const endpoint = newType === "income" ? "/api/incomes" : "/api/expenses";
+      const payload: Record<string, unknown> = {
+        description: newDescription,
+        categoryId: newCategoryId,
+        accountId: newType === "income" ? newAccountId : newAccountId,
+        memberId: newMemberId,
+        amount: Number(newAmount),
+        competenceDate: newDate,
+        receivedDate: newType === "income" ? newDate : undefined,
+        paidDate: newType !== "income" ? newDate : undefined,
+        recurring: false,
+      };
+      const auth = (await import("@/lib/firebase/auth")).auth;
+      const user = auth.currentUser;
+      const token = user ? await user.getIdToken() : "";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Erro ao criar");
+      setOpen(false);
+      resetForm();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao criar");
+    }
+  }
+
+  function resetForm() {
+    setNewType("expense");
+    setNewCategoryId("");
+    setNewAccountId("");
+    setNewMemberId("");
+    setNewDescription("");
+    setNewAmount("");
+    setNewDate(new Date().toISOString().split("T")[0]);
+  }
 
   return (
     <div className="space-y-6">
@@ -138,7 +220,7 @@ export default function LancamentosPage() {
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button />}>
+          <DialogTrigger render={<Button onClick={resetForm} />}>
             <Plus className="mr-2 h-4 w-4" />
             Novo lançamento
           </DialogTrigger>
@@ -149,38 +231,67 @@ export default function LancamentosPage() {
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label>Tipo</Label>
-                <Select defaultValue="expense">
+                <Select value={newType} onValueChange={(v) => v && setNewType(v)}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="income">Receita</SelectItem>
                     <SelectItem value="expense">Despesa</SelectItem>
-                    <SelectItem value="transfer">Transferência</SelectItem>
-                    <SelectItem value="adjustment">Ajuste</SelectItem>
-                    <SelectItem value="investment">Investimento</SelectItem>
-                    <SelectItem value="debt_payment">Pagamento de dívida</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Valor</Label>
-                <Input type="number" placeholder="0,00" />
+                <Input type="number" placeholder="0,00" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Descrição</Label>
-                <Input placeholder="Descrição do lançamento" />
+                <Input placeholder="Descrição" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Select value={newCategoryId} onValueChange={(v) => v && setNewCategoryId(v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {availableCategories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Conta</Label>
+                <Select value={newAccountId} onValueChange={(v) => v && setNewAccountId(v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {(accounts || []).map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Responsável</Label>
+                <Select value={newMemberId} onValueChange={(v) => v && setNewMemberId(v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {(members || []).map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Data</Label>
-                <Input type="date" />
+                <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
               </div>
             </div>
             <DialogFooter>
               <DialogClose render={<Button variant="outline" />}>
                 Cancelar
               </DialogClose>
-              <Button>Criar</Button>
+              <Button onClick={handleCreate}>Criar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -268,7 +379,7 @@ export default function LancamentosPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            {members.map((m) => (
+            {memberOptions.map((m) => (
               <SelectItem key={m} value={m}>{m}</SelectItem>
             ))}
           </SelectContent>
@@ -323,7 +434,26 @@ export default function LancamentosPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>{t.category}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{t.description}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      <span className="flex items-center gap-1">
+                        {t.description}
+                        {t.sourceType === "fixed_income" && (
+                          <Badge variant="outline" className="text-[10px] gap-0.5 font-normal text-green-600 border-green-200 cursor-pointer" onClick={() => router.push("/receitas-fixas")}>
+                            <Repeat className="h-2.5 w-2.5" />Fixa
+                          </Badge>
+                        )}
+                        {t.sourceType === "recurring_bill" && (
+                          <Badge variant="outline" className="text-[10px] gap-0.5 font-normal text-orange-600 border-orange-200 cursor-pointer" onClick={() => router.push("/contas-recorrentes")}>
+                            <Repeat className="h-2.5 w-2.5" />Recorrente
+                          </Badge>
+                        )}
+                        {t.sourceType === "invoice" && (
+                          <Badge variant="outline" className="text-[10px] gap-0.5 font-normal text-blue-600 border-blue-200 cursor-pointer" onClick={() => router.push("/faturas")}>
+                            <ExternalLink className="h-2.5 w-2.5" />Fatura
+                          </Badge>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{t.account}</TableCell>
                     <TableCell className="text-muted-foreground">{t.member}</TableCell>
                     <TableCell

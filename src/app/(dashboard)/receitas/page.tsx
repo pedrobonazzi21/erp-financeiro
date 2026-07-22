@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useApi } from "@/lib/use-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,6 +36,7 @@ import {
   Pencil,
   Trash2,
   Repeat,
+  ExternalLink,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MonthPicker, useMonth } from "@/components/month-picker"
@@ -51,7 +53,9 @@ interface Income {
   memberId: string
   costCenterId: string
   recurring: boolean
-  status: "received" | "pending" | "scheduled"
+  status: "received" | "pending"
+  sourceType: string
+  sourceId: string
 }
 interface Category { id: string; name: string }
 interface BankAccount { id: string; bank: string }
@@ -59,6 +63,7 @@ interface FamilyMember { id: string; name: string }
 interface CostCenter { id: string; name: string }
 
 export default function ReceitasPage() {
+  const router = useRouter()
   const { data: incomes, loading, error, create, update, remove } = useApi<Income>("/api/incomes")
   const { data: categories } = useApi<Category>("/api/categories")
   const { data: accounts } = useApi<BankAccount>("/api/bank-accounts")
@@ -249,10 +254,15 @@ export default function ReceitasPage() {
               filtered.map((income) => (
                 <TableRow key={income.id}>
                   <TableCell className="text-muted-foreground">{income.receivedDate ? new Date(income.receivedDate).toLocaleDateString("pt-BR") : new Date(income.competenceDate).toLocaleDateString("pt-BR")}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">
+                    <TableCell className="max-w-[200px] truncate">
                     <span className="flex items-center gap-1">
                       {income.description}
-                      {income.recurring && <Repeat className="h-3 w-3 text-muted-foreground" />}
+                      {income.sourceType === "fixed_income" && (
+                        <Badge variant="outline" className="text-[10px] gap-0.5 font-normal text-green-600 border-green-200 cursor-pointer" onClick={() => router.push("/receitas-fixas")}>
+                          <Repeat className="h-2.5 w-2.5" />Fixa
+                        </Badge>
+                      )}
+                      {income.recurring && !income.sourceType && <Repeat className="h-3 w-3 text-muted-foreground" />}
                     </span>
                   </TableCell>
                   <TableCell><Badge variant="outline">{categoryMap[income.categoryId] || income.categoryId}</Badge></TableCell>

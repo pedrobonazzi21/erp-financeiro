@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { MonthPicker, useMonth } from "@/components/month-picker"
 import { useApi } from "@/lib/use-api"
 import { Button } from "@/components/ui/button"
@@ -29,13 +30,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ExpenseForm } from "./expense-form"
 import type { ExpenseFormData } from "@/lib/validations"
 import {
-  Plus,
-  Search,
-  ArrowUpDown,
-  TrendingDown,
-  Pencil,
-  Trash2,
-} from "lucide-react"
+   Plus,
+   Search,
+   ArrowUpDown,
+   TrendingDown,
+   Pencil,
+   Trash2,
+   Repeat,
+   ExternalLink,
+ } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Expense {
@@ -52,6 +55,8 @@ interface Expense {
   costCenterId: string
   installment: string
   status: "paid" | "pending" | "overdue"
+  sourceType: string
+  sourceId: string
 }
 interface Category { id: string; name: string }
 interface BankAccount { id: string; bank: string }
@@ -61,6 +66,7 @@ interface FamilyMember { id: string; name: string }
 interface CostCenter { id: string; name: string }
 
 export default function DespesasPage() {
+  const router = useRouter()
   const { data: expenses, loading, error, create, update, remove } = useApi<Expense>("/api/expenses")
   const { data: categories } = useApi<Category>("/api/categories")
   const { data: accounts } = useApi<BankAccount>("/api/bank-accounts")
@@ -263,8 +269,20 @@ export default function DespesasPage() {
                   <TableRow key={expense.id}>
                     <TableCell className="text-muted-foreground">{expense.paidDate ? new Date(expense.paidDate).toLocaleDateString("pt-BR") : new Date(expense.competenceDate).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
-                      {expense.description}
-                      {expense.installment && <span className="ml-1 text-xs text-muted-foreground">({expense.installment})</span>}
+                      <span className="flex items-center gap-1">
+                        {expense.description}
+                        {expense.sourceType === "recurring_bill" && (
+                          <Badge variant="outline" className="text-[10px] gap-0.5 font-normal text-orange-600 border-orange-200 cursor-pointer" onClick={() => router.push("/contas-recorrentes")}>
+                            <Repeat className="h-2.5 w-2.5" />Recorrente
+                          </Badge>
+                        )}
+                        {expense.sourceType === "invoice" && (
+                          <Badge variant="outline" className="text-[10px] gap-0.5 font-normal text-blue-600 border-blue-200 cursor-pointer" onClick={() => router.push("/faturas")}>
+                            <ExternalLink className="h-2.5 w-2.5" />Fatura
+                          </Badge>
+                        )}
+                        {expense.installment && <span className="ml-1 text-xs text-muted-foreground">({expense.installment})</span>}
+                      </span>
                     </TableCell>
                     <TableCell><Badge variant="outline">{categoryMap[expense.categoryId] || expense.categoryId}</Badge></TableCell>
                     <TableCell className="text-muted-foreground text-xs">{paymentLabel}</TableCell>

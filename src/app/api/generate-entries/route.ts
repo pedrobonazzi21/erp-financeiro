@@ -42,6 +42,8 @@ export async function GET(request: NextRequest) {
           memberId: fi.memberId,
           description: fi.name,
           recurring: true,
+          sourceType: 'fixed_income',
+          sourceId: fi.id,
         });
         generated.incomes++;
       }
@@ -74,6 +76,8 @@ export async function GET(request: NextRequest) {
           memberId: rb.memberId,
           description: rb.name,
           recurring: true,
+          sourceType: 'recurring_bill',
+          sourceId: rb.id,
         });
         generated.expenses++;
       }

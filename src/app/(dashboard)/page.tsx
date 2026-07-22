@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const { data: incomes = [] } = useApi<{id:string; description:string; amount:number; competenceDate:string; categoryId:string; status:string}>('/api/incomes');
   const { data: expenses = [] } = useApi<{id:string; description:string; amount:number; competenceDate:string; categoryId:string; status:string; dueDate:string}>('/api/expenses');
   const { data: bankAccounts = [] } = useApi<{id:string; bank:string; balance:number}>('/api/bank-accounts');
-  const { data: creditCards = [] } = useApi<{id:string; bankAccountId:string; creditLimit:number; currentInvoice:number; closingDay:number; dueDay:number}>('/api/credit-cards');
+  const { data: creditCards = [] } = useApi<{id:string; bankAccountId:string; limit:number; used:number; available:number; closingDay:number; dueDay:number}>('/api/credit-cards');
   const { data: recurringBills = [] } = useApi<{id:string; description:string; amount:number; dueDay:number; status:string}>('/api/recurring-bills');
   const { data: goals = [] } = useApi<{id:string; name:string; savedAmount:number; targetAmount:number; deadline:string}>('/api/goals');
   const { data: categories = [] } = useApi<{id:string; name:string; icon:string}>('/api/categories');
@@ -134,8 +134,8 @@ export default function DashboardPage() {
       const bank = bankAccounts.find(a => a.id === c.bankAccountId);
       return {
         name: bank?.bank || c.bankAccountId,
-        used: Number(c.currentInvoice),
-        limit: Number(c.creditLimit),
+        used: Number(c.used),
+        limit: Number(c.limit),
         closingDay: c.closingDay,
         dueDay: c.dueDay,
         color: ['#820ad1','#ff7a00','#005ca9'][i % 3],

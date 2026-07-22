@@ -9,6 +9,7 @@ export const transfers = pgTable('transfer', {
   fromAccountId: text('from_account_id').notNull().references(() => bankAccounts.id, { onDelete: 'cascade' }),
   toAccountId: text('to_account_id').notNull().references(() => bankAccounts.id, { onDelete: 'cascade' }),
   memberId: text('member_id').notNull().references(() => familyMembers.id, { onDelete: 'cascade' }),
+  externalTo: text('external_to'),
   description: text('description'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

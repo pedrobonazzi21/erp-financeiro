@@ -23,21 +23,28 @@ export async function POST(request: NextRequest) {
     await requireAuth(request);
     const body = await request.json();
     const amount = body.amount;
+    const isExternal = !!body.externalTo;
 
     const [item] = await getDb().insert(transfers).values({
       id: crypto.randomUUID(),
       amount,
       date: body.date,
       fromAccountId: body.fromAccountId,
-      toAccountId: body.toAccountId,
+      toAccountId: isExternal ? "" : body.toAccountId,
       memberId: body.memberId,
-      description: body.description,
+      externalTo: isExternal ? body.externalTo : null,
+      description: body.description || body.externalTo || null,
     }).returning();
 
-    await Promise.all([
+    const balanceUpdates = [
       getDb().update(bankAccounts).set({ balance: sql`${bankAccounts.balance} - ${amount}`, updatedAt: new Date() }).where(eq(bankAccounts.id, body.fromAccountId)),
-      getDb().update(bankAccounts).set({ balance: sql`${bankAccounts.balance} + ${amount}`, updatedAt: new Date() }).where(eq(bankAccounts.id, body.toAccountId)),
-    ]);
+    ];
+    if (!isExternal && body.toAccountId) {
+      balanceUpdates.push(
+        getDb().update(bankAccounts).set({ balance: sql`${bankAccounts.balance} + ${amount}`, updatedAt: new Date() }).where(eq(bankAccounts.id, body.toAccountId)),
+      );
+    }
+    await Promise.all(balanceUpdates);
 
     return created(item);
   } catch (e) {

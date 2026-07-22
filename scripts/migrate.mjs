@@ -78,6 +78,11 @@ const migrations = [
       FOREIGN KEY ("category_id") REFERENCES "category"("id") ON DELETE set null;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END $$`,
+  `ALTER TABLE "income" ADD COLUMN IF NOT EXISTS "source_type" text`,
+  `ALTER TABLE "income" ADD COLUMN IF NOT EXISTS "source_id" text`,
+  `ALTER TABLE "expense" ADD COLUMN IF NOT EXISTS "source_type" text`,
+  `ALTER TABLE "expense" ADD COLUMN IF NOT EXISTS "source_id" text`,
+  `ALTER TABLE "transfer" ADD COLUMN IF NOT EXISTS "external_to" text`,
 ]
 
 async function run() {

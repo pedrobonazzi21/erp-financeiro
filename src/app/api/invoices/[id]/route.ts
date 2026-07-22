@@ -68,8 +68,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         memberId: card?.memberId || "",
         creditCardId: old.creditCardId,
         description: `Fatura ${String(old.month).padStart(2, "0")}/${old.year}`,
-        recurring: false,
-      });
+          recurring: false,
+          sourceType: 'invoice',
+          sourceId: id,
+        });
     }
 
     return ok(item);

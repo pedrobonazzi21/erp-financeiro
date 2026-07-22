@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
           memberId: item.memberId,
           description: item.name,
           recurring: true,
+          sourceType: 'fixed_income',
+          sourceId: item.id,
         });
       }
     }

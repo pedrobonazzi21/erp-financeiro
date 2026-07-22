@@ -55,7 +55,8 @@ type TransactionType =
   | "transfer"
   | "adjustment"
   | "investment"
-  | "debt_payment";
+  | "debt_payment"
+  | "fixed_income";
 
 interface Transaction {
   id: string;
@@ -81,6 +82,7 @@ const typeConfig: Record<TransactionType, { label: string; icon: typeof ArrowUpR
   adjustment: { label: "Ajuste", icon: Wallet, color: "text-yellow-600 bg-yellow-50 dark:bg-yellow-950" },
   investment: { label: "Investimento", icon: PiggyBank, color: "text-purple-600 bg-purple-50 dark:bg-purple-950" },
   debt_payment: { label: "Dívida", icon: HandCoins, color: "text-orange-600 bg-orange-50 dark:bg-orange-950" },
+  fixed_income: { label: "Fixa", icon: Repeat, color: "text-green-600 bg-green-50 dark:bg-green-950" },
 };
 
 type SortField = "date" | "amount";
@@ -160,7 +162,7 @@ export default function LancamentosPage() {
     return map;
   }, [members]);
 
-  const totalIncome = filtered.filter((t) => t.type === "income").reduce((a, b) => a + Number(b.amount), 0);
+  const totalIncome = filtered.filter((t) => t.type === "income" || t.type === "fixed_income").reduce((a, b) => a + Number(b.amount), 0);
   const totalExpense = filtered.filter((t) => t.type === "expense").reduce((a, b) => a + Number(b.amount), 0);
 
   const memberOptions = [...new Set(transactions.map((t) => t.member))];
@@ -359,6 +361,7 @@ export default function LancamentosPage() {
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="income">Receitas</SelectItem>
             <SelectItem value="expense">Despesas</SelectItem>
+            <SelectItem value="fixed_income">Receitas Fixas</SelectItem>
             <SelectItem value="transfer">Transferências</SelectItem>
             <SelectItem value="adjustment">Ajustes</SelectItem>
             <SelectItem value="investment">Investimentos</SelectItem>

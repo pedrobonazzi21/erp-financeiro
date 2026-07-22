@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { expenses } from "@/lib/db/schema";
-import { requireAuth, ok, noContent, notFound, badRequest, serverError, addBalance, subtractCreditUsed } from "@/lib/api-helpers";
-import { eq } from "drizzle-orm";
+import { expenses, bankAccounts, creditCards } from "@/lib/db/schema";
+import { requireAuth, ok, noContent, notFound, badRequest, serverError } from "@/lib/api-helpers";
+import { eq, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -56,15 +56,26 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     await requireAuth(request);
     const { id } = await params;
-    const [item] = await getDb().delete(expenses).where(eq(expenses.id, id)).returning();
-    if (!item) return notFound();
-    if (item.accountId) await addBalance(item.accountId, item.amount);
-    if (item.creditCardId) await subtractCreditUsed(item.creditCardId, item.amount);
+    await getDb().transaction(async (tx) => {
+      const [item] = await tx.delete(expenses).where(eq(expenses.id, id)).returning();
+      if (!item) throw new Error("Not found");
+      if (item.accountId) {
+        await tx.update(bankAccounts).set({
+          balance: sql`${bankAccounts.balance} + ${Number(item.amount)}`,
+        }).where(eq(bankAccounts.id, item.accountId));
+      }
+      if (item.creditCardId) {
+        await tx.update(creditCards).set({
+          used: sql`${creditCards.used} - ${Number(item.amount)}`,
+        }).where(eq(creditCards.id, item.creditCardId));
+      }
+    });
     return noContent();
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (e instanceof Error && e.message === "Not found") return notFound();
     return serverError(e);
   }
 }

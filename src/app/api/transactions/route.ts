@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import {
   incomes, expenses, transfers, investments, debts,
+  fixedIncomes,
   categories, bankAccounts, familyMembers,
 } from "@/lib/db/schema";
 import { requireAuth, ok } from "@/lib/api-helpers";
@@ -11,12 +12,13 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(request);
 
-    const [incomeRows, expenseRows, transferRows, investmentRows, debtRows, allCategories, allAccounts, allMembers] = await Promise.all([
+    const [incomeRows, expenseRows, transferRows, investmentRows, debtRows, fixedIncomeRows, allCategories, allAccounts, allMembers] = await Promise.all([
       getDb().select().from(incomes).orderBy(incomes.createdAt),
       getDb().select().from(expenses).orderBy(expenses.createdAt),
       getDb().select().from(transfers).orderBy(transfers.createdAt),
       getDb().select().from(investments).orderBy(investments.createdAt),
       getDb().select().from(debts).orderBy(debts.createdAt),
+      getDb().select().from(fixedIncomes).orderBy(fixedIncomes.name),
       getDb().select().from(categories),
       getDb().select().from(bankAccounts),
       getDb().select().from(familyMembers),
@@ -118,6 +120,27 @@ export async function GET(request: NextRequest) {
         memberId: r.memberId,
         sourceType: "",
         sourceId: "",
+      });
+    });
+
+    fixedIncomeRows.forEach((r) => {
+      if (!r.active) return;
+      const displayDate = r.startDate ? new Date(r.startDate) : new Date();
+      mapped.push({
+        id: r.id,
+        date: displayDate.toISOString(),
+        type: "fixed_income",
+        category: categoryMap.get(r.categoryId) || r.categoryId,
+        categoryId: r.categoryId,
+        description: r.name,
+        account: accountMap.get(r.accountId) || r.accountId,
+        accountId: r.accountId,
+        amount: Number(r.amount),
+        status: "pending",
+        member: memberMap.get(r.memberId) || r.memberId,
+        memberId: r.memberId,
+        sourceType: "fixed_income",
+        sourceId: r.id,
       });
     });
 

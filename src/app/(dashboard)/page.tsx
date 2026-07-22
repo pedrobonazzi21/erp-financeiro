@@ -1,7 +1,7 @@
 "use client";
 
 import { useApi } from "@/lib/use-api";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -60,6 +60,18 @@ export default function DashboardPage() {
   const [chartYear, setChartYear] = useState(getCurrentYear());
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
+
+  useEffect(() => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    import("@/lib/firebase/auth").then(({ auth }) => {
+      if (auth.currentUser) {
+        auth.currentUser.getIdToken().then((token) => {
+          headers["Authorization"] = `Bearer ${token}`;
+          fetch("/api/generate-entries", { headers }).catch(() => {});
+        });
+      }
+    });
+  }, []);
 
   const icons = [Utensils, Home, Car, Heart, Gamepad2, MoreHorizontal];
 

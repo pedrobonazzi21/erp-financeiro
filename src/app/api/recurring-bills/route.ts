@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { recurringBills } from "@/lib/db/schema";
+import { recurringBills, expenses } from "@/lib/db/schema";
 import { requireAuth, ok, created, badRequest, serverError } from "@/lib/api-helpers";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,6 +39,35 @@ export async function POST(request: NextRequest) {
       month: body.month,
       year: body.year,
     }).returning();
+
+    // Auto-create expense entry for current month
+    if (item.status === "pending" && !item.suspended) {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const [existing] = await getDb()
+        .select({ count: sql<number>`count(*)::int` })
+        .from(expenses)
+        .where(and(
+          eq(expenses.description, item.name),
+          eq(expenses.accountId, item.accountId),
+          eq(expenses.categoryId, item.categoryId),
+          eq(expenses.recurring, true),
+          sql`${expenses.competenceDate} >= ${startOfMonth}`,
+        ));
+      if (!existing || existing.count === 0) {
+        await getDb().insert(expenses).values({
+          id: crypto.randomUUID(),
+          categoryId: item.categoryId,
+          amount: item.amount,
+          competenceDate: startOfMonth,
+          accountId: item.accountId,
+          memberId: item.memberId,
+          description: item.name,
+          recurring: true,
+        });
+      }
+    }
+
     return created(item);
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {

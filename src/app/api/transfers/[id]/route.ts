@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { transfers } from "@/lib/db/schema";
+import { transfers, bankAccounts } from "@/lib/db/schema";
 import { requireAuth, ok, noContent, notFound, badRequest, serverError } from "@/lib/api-helpers";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,6 +25,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await requireAuth(request);
     const { id } = await params;
     const body = await request.json();
+    const [old] = await getDb().select().from(transfers).where(eq(transfers.id, id));
+    if (!old) return notFound();
+
     const [item] = await getDb().update(transfers).set({
       amount: body.amount,
       date: body.date,
@@ -34,7 +37,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       description: body.description,
       updatedAt: new Date(),
     }).where(eq(transfers.id, id)).returning();
-    if (!item) return notFound();
+
+    const oldAmount = Number(old.amount);
+    const newAmount = Number(body.amount);
+
+    await Promise.all([
+      getDb().update(bankAccounts).set({ balance: sql`${bankAccounts.balance} + ${oldAmount} - ${newAmount}`, updatedAt: new Date() }).where(eq(bankAccounts.id, body.fromAccountId)),
+      getDb().update(bankAccounts).set({ balance: sql`${bankAccounts.balance} - ${oldAmount} + ${newAmount}`, updatedAt: new Date() }).where(eq(bankAccounts.id, body.toAccountId)),
+    ]);
+
     return ok(item);
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {
@@ -48,8 +59,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     await requireAuth(request);
     const { id } = await params;
+    const [old] = await getDb().select().from(transfers).where(eq(transfers.id, id));
+    if (!old) return notFound();
+
     const [item] = await getDb().delete(transfers).where(eq(transfers.id, id)).returning();
-    if (!item) return notFound();
+
+    const amount = Number(old.amount);
+    await Promise.all([
+      getDb().update(bankAccounts).set({ balance: sql`${bankAccounts.balance} + ${amount}`, updatedAt: new Date() }).where(eq(bankAccounts.id, old.fromAccountId)),
+      getDb().update(bankAccounts).set({ balance: sql`${bankAccounts.balance} - ${amount}`, updatedAt: new Date() }).where(eq(bankAccounts.id, old.toAccountId)),
+    ]);
+
     return noContent();
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {

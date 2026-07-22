@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }).returning();
 
     // Auto-create expense entry for current month (isolated)
-    if (item.status === "pending" && !item.suspended) {
+    if (item.status === "pending" && !item.suspended && (!item.endDate || new Date(item.endDate) >= new Date())) {
       try {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

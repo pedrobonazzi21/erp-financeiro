@@ -52,6 +52,7 @@ interface RecurringBill {
   status: "active" | "paused";
   autoGenerate: boolean;
   startDate: string;
+  endDate: string | null;
   nextGeneration: string;
 }
 
@@ -73,19 +74,19 @@ export default function ContasRecorrentesPage() {
   const members = apiMembers.length > 0 ? apiMembers.map((m) => m.name) : ["Carlos", "Maria", "João"];
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0] });
+  const [form, setForm] = useState({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
 
   const totalMonthly = bills.filter((b) => b.frequency === "monthly" && b.status === "active").reduce((a, b) => a + Number(b.amount), 0);
 
   function resetForm() {
-    setForm({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly", autoGenerate: true, startDate: new Date().toISOString().split("T")[0] });
+    setForm({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly", autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
     setEditingId(null);
     setOpen(false);
   }
 
   function handleEdit(bill: RecurringBill) {
     setEditingId(bill.id);
-    setForm({ name: bill.name, amount: String(bill.amount), category: bill.category, account: bill.account, member: bill.member, dueDay: String(bill.dueDay), frequency: bill.frequency, autoGenerate: bill.autoGenerate, startDate: bill.startDate });
+    setForm({ name: bill.name, amount: String(bill.amount), category: bill.category, account: bill.account, member: bill.member, dueDay: String(bill.dueDay), frequency: bill.frequency, autoGenerate: bill.autoGenerate, startDate: bill.startDate, endDate: bill.endDate ? new Date(bill.endDate).toISOString().split("T")[0] : "" });
     setOpen(true);
   }
 
@@ -93,30 +94,22 @@ export default function ContasRecorrentesPage() {
     if (!form.name || !form.amount) return;
     const nextDate = new Date(form.startDate);
     nextDate.setDate(Number(form.dueDay));
+    const payload = {
+      name: form.name,
+      amount: Number(form.amount),
+      category: form.category,
+      account: form.account,
+      member: form.member,
+      dueDay: Number(form.dueDay),
+      frequency: form.frequency,
+      autoGenerate: form.autoGenerate,
+      startDate: form.startDate,
+      endDate: form.endDate || null,
+    };
     if (editingId) {
-      update(editingId, {
-        name: form.name,
-        amount: Number(form.amount),
-        category: form.category,
-        account: form.account,
-        member: form.member,
-        dueDay: Number(form.dueDay),
-        frequency: form.frequency,
-        autoGenerate: form.autoGenerate,
-        startDate: form.startDate,
-      });
+      update(editingId, payload);
     } else {
-      create({
-        name: form.name,
-        amount: Number(form.amount),
-        category: form.category,
-        account: form.account,
-        member: form.member,
-        dueDay: Number(form.dueDay),
-        frequency: form.frequency,
-        autoGenerate: form.autoGenerate,
-        startDate: form.startDate,
-      });
+      create(payload);
     }
     resetForm();
   }
@@ -198,6 +191,10 @@ export default function ContasRecorrentesPage() {
               <div className="space-y-2">
                 <Label>Data inicial</Label>
                 <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Data final (opcional)</Label>
+                <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
               </div>
               <div className="col-span-2 flex items-center gap-2">
                 <input type="checkbox" id="auto" checked={form.autoGenerate} onChange={(e) => setForm({ ...form, autoGenerate: e.target.checked })} className="h-4 w-4 rounded border-input" />

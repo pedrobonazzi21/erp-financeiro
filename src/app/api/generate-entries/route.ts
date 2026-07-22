@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
       and(eq(recurringBills.status, "pending"), eq(recurringBills.suspended, false))
     );
     for (const rb of pendingBills) {
+      if (rb.endDate && new Date(rb.endDate) < startOfMonth) continue;
       try {
         const [existing] = await getDb()
           .select({ count: sql<number>`count(*)::int` })

@@ -2,6 +2,44 @@ import postgres from 'postgres'
 
 const sql = postgres(process.env.DATABASE_URL)
 
+const defaultCategories = [
+  { name: 'Salário', icon: 'briefcase', type: 'income' },
+  { name: 'Freelance', icon: 'laptop', type: 'income' },
+  { name: 'Investimentos', icon: 'trending-up', type: 'income' },
+  { name: 'Aluguel', icon: 'home', type: 'income' },
+  { name: 'Pensão', icon: 'users', type: 'income' },
+  { name: 'Outros', icon: 'plus', type: 'income' },
+  { name: 'Alimentação', icon: 'utensils-crossed', type: 'expense' },
+  { name: 'Mercado', icon: 'shopping-cart', type: 'expense' },
+  { name: 'Transporte', icon: 'car', type: 'expense' },
+  { name: 'Moradia', icon: 'building', type: 'expense' },
+  { name: 'Saúde', icon: 'heart-pulse', type: 'expense' },
+  { name: 'Educação', icon: 'graduation-cap', type: 'expense' },
+  { name: 'Lazer', icon: 'gamepad-2', type: 'expense' },
+  { name: 'Assinaturas', icon: 'repeat', type: 'expense' },
+  { name: 'Vestuário', icon: 'shirt', type: 'expense' },
+  { name: 'Serviços', icon: 'zap', type: 'expense' },
+  { name: 'Impostos', icon: 'receipt', type: 'expense' },
+  { name: 'Emergência', icon: 'alert-triangle', type: 'expense' },
+]
+
+async function seedCategories() {
+  const [{ count }] = await sql`SELECT COUNT(*)::int as count FROM "category"`
+  if (count === 0) {
+    console.log('Seeding default categories...')
+    for (const cat of defaultCategories) {
+      await sql`
+        INSERT INTO "category" (id, name, icon, type)
+        VALUES (${crypto.randomUUID()}, ${cat.name}, ${cat.icon}, ${cat.type})
+        ON CONFLICT (name) DO NOTHING
+      `
+    }
+    console.log(`  ${defaultCategories.length} categories created`)
+  } else {
+    console.log(`  ${count} categories already exist, skipping seed`)
+  }
+}
+
 const migrations = [
   `CREATE TABLE IF NOT EXISTS "fixed_income" (
     "id" text PRIMARY KEY NOT NULL,
@@ -52,6 +90,8 @@ async function run() {
       console.error('  FAILED:', e.message)
     }
   }
+  console.log('Seeding default data...')
+  await seedCategories()
   console.log('Done.')
   await sql.end()
 }

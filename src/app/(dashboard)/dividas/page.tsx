@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, HandCoins, Pencil, Trash2 } from "lucide-react";
+import { Plus, HandCoins, Pencil, Trash2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
 
@@ -37,7 +37,14 @@ interface Debt {
   interestRate: number;
   installmentsTotal: number;
   installmentsRemaining: number;
-  member: string;
+  memberId: string;
+  creditorName: string | null;
+  forMemberIds: string[] | null;
+}
+
+interface FamilyMember {
+  id: string;
+  name: string;
 }
 
 const typeConfig: Record<DebtType, { label: string }> = {
@@ -46,16 +53,30 @@ const typeConfig: Record<DebtType, { label: string }> = {
   installment: { label: "Parcelamento" },
 };
 
-const members = ["Carlos", "Maria", "João"];
-
 export default function DividasPage() {
   const { data: debts, loading, error, create, update, remove } = useApi<Debt>('/api/debts');
+  const { data: members } = useApi<FamilyMember>('/api/family-members');
+
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
-    type: "loan" as DebtType, description: "", totalAmount: "", remainingAmount: "",
-    interestRate: "0", installmentsTotal: "1", installmentsRemaining: "1", member: members[0],
+    type: "loan" as DebtType,
+    description: "",
+    totalAmount: "",
+    remainingAmount: "",
+    interestRate: "0",
+    installmentsTotal: "1",
+    installmentsRemaining: "1",
+    memberId: "",
+    creditorName: "",
+    forMemberIds: [] as string[],
   });
+
+  const memberMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (members || []).forEach((m) => { map[m.id] = m.name; });
+    return map;
+  }, [members]);
 
   const totalRemaining = debts.reduce((a, b) => a + Number(b.remainingAmount), 0);
   const totalOriginal = debts.reduce((a, b) => a + Number(b.totalAmount), 0);
@@ -63,7 +84,11 @@ export default function DividasPage() {
   const pctPaid = totalOriginal > 0 ? Math.round((totalPaid / totalOriginal) * 100) : 0;
 
   function resetForm() {
-    setForm({ type: "loan", description: "", totalAmount: "", remainingAmount: "", interestRate: "0", installmentsTotal: "1", installmentsRemaining: "1", member: members[0] });
+    setForm({
+      type: "loan", description: "", totalAmount: "", remainingAmount: "",
+      interestRate: "0", installmentsTotal: "1", installmentsRemaining: "1",
+      memberId: members?.[0]?.id || "", creditorName: "", forMemberIds: [],
+    });
     setEditingId(null);
     setOpen(false);
   }
@@ -71,42 +96,67 @@ export default function DividasPage() {
   function handleEdit(debt: Debt) {
     setEditingId(debt.id);
     setForm({
-      type: debt.type, description: debt.description, totalAmount: String(debt.totalAmount),
-      remainingAmount: String(debt.remainingAmount), interestRate: String(debt.interestRate),
-      installmentsTotal: String(debt.installmentsTotal), installmentsRemaining: String(debt.installmentsRemaining),
-      member: debt.member,
+      type: debt.type,
+      description: debt.description,
+      totalAmount: String(debt.totalAmount),
+      remainingAmount: String(debt.remainingAmount),
+      interestRate: String(debt.interestRate),
+      installmentsTotal: String(debt.installmentsTotal),
+      installmentsRemaining: String(debt.installmentsRemaining),
+      memberId: debt.memberId,
+      creditorName: debt.creditorName || "",
+      forMemberIds: debt.forMemberIds || [],
     });
     setOpen(true);
   }
 
-  function handleSave() {
-    if (!form.description || !form.totalAmount) return;
-    const debt: Debt = {
-      id: editingId || crypto.randomUUID(),
-      type: form.type, description: form.description,
-      totalAmount: Number(form.totalAmount), remainingAmount: Number(form.remainingAmount) || 0,
+  function toggleForMember(id: string) {
+    setForm((prev) => ({
+      ...prev,
+      forMemberIds: prev.forMemberIds.includes(id)
+        ? prev.forMemberIds.filter((x) => x !== id)
+        : [...prev.forMemberIds, id],
+    }));
+  }
+
+  async function handleSave() {
+    if (!form.description || !form.totalAmount || !form.memberId) return;
+    const payload: Partial<Debt> = {
+      type: form.type,
+      description: form.description,
+      totalAmount: Number(form.totalAmount),
+      remainingAmount: Number(form.remainingAmount) || 0,
       interestRate: Number(form.interestRate) || 0,
       installmentsTotal: Number(form.installmentsTotal) || 1,
       installmentsRemaining: Number(form.installmentsRemaining) || 1,
-      member: form.member,
+      memberId: form.memberId,
+      creditorName: form.creditorName || null,
+      forMemberIds: form.forMemberIds.length > 0 ? form.forMemberIds : null,
     };
-    if (editingId) update(editingId, debt);
-    else create(debt);
-    resetForm();
+    try {
+      if (editingId) await update(editingId, payload);
+      else await create(payload);
+      resetForm();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao salvar");
+    }
   }
 
   return (
     <div className="space-y-6">
+      {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dívidas</h1>
           <p className="text-muted-foreground">Controle empréstimos, financiamentos e parcelamentos.</p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
-          <DialogTrigger render={<Button />}>
+          <DialogTrigger render={<Button onClick={resetForm} />}>
             <Plus className="mr-2 h-4 w-4" /> Nova dívida
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>{editingId ? "Editar" : "Nova"} dívida</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-2">
               <div className="space-y-2 col-span-2">
@@ -145,13 +195,38 @@ export default function DividasPage() {
                 <Input type="number" value={form.installmentsRemaining} onChange={(e) => setForm({ ...form, installmentsRemaining: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Responsável</Label>
-                <Select value={form.member} onValueChange={(v) => v && setForm({ ...form, member: v })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <Label>Credor (quem recebe)</Label>
+                <Input value={form.creditorName} onChange={(e) => setForm({ ...form, creditorName: e.target.value })} placeholder="Ex: Banco XPTO, João" />
+              </div>
+              <div className="space-y-2">
+                <Label>Quem paga</Label>
+                <Select value={form.memberId} onValueChange={(v) => v && setForm({ ...form, memberId: v })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    {members.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {(members || []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Para quem (responsáveis)</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(members || []).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => toggleForMember(m.id)}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                        form.forMemberIds.includes(m.id)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-accent"
+                      )}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">Selecione um ou mais membros responsáveis pela dívida.</p>
               </div>
             </div>
             <DialogFooter>
@@ -189,12 +264,14 @@ export default function DividasPage() {
         </Card>
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="space-y-4">
         {debts.map((debt) => {
           const progress = debt.totalAmount > 0 ? Math.round(((debt.totalAmount - debt.remainingAmount) / debt.totalAmount) * 100) : 0;
           const installmentValue = debt.installmentsRemaining > 0 ? debt.remainingAmount / debt.installmentsRemaining : 0;
+          const forNames = (debt.forMemberIds || [])
+            .map((id) => memberMap[id])
+            .filter(Boolean)
+            .join(", ");
           return (
             <Card key={debt.id}>
               <CardContent className="p-4">
@@ -205,7 +282,14 @@ export default function DividasPage() {
                     </div>
                     <div>
                       <p className="font-medium">{debt.description}</p>
-                      <Badge variant="outline" className="text-xs">{typeConfig[debt.type].label}</Badge>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Badge variant="outline" className="text-xs">{typeConfig[debt.type].label}</Badge>
+                        {debt.creditorName && (
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <ExternalLink className="h-2.5 w-2.5" />{debt.creditorName}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-1">
@@ -218,7 +302,7 @@ export default function DividasPage() {
                 <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Saldo devedor</span>
-                    <p className="font-bold text-red-600">R$ {debt.remainingAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                    <p className="font-bold text-red-600">R$ {Number(debt.remainingAmount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Parcela</span>
@@ -236,9 +320,10 @@ export default function DividasPage() {
                 <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
                   <div className="h-full rounded-full bg-green-500 transition-all" style={{ width: `${progress}%` }} />
                 </div>
-                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                  <span>{debt.member}</span>
-                  <span>{debt.installmentsRemaining} parcelas restantes</span>
+                <div className="mt-1 flex flex-wrap justify-between gap-1 text-xs text-muted-foreground">
+                  <span>Pagador: {memberMap[debt.memberId] || debt.memberId}</span>
+                  {forNames && <span>Para: {forNames}</span>}
+                  <span>{debt.installmentsRemaining} parcela(s) restante(s)</span>
                 </div>
               </CardContent>
             </Card>

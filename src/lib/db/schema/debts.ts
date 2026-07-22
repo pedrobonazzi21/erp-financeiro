@@ -1,4 +1,4 @@
-import { pgTable, text, decimal, integer, timestamp, pgEnum } from 'drizzle-orm/pg-core'
+import { pgTable, text, decimal, integer, timestamp, jsonb, pgEnum } from 'drizzle-orm/pg-core'
 import { familyMembers } from './families'
 
 export const debtTypeEnum = pgEnum('debt_type', ['loan', 'financing', 'installment'])
@@ -13,6 +13,8 @@ export const debts = pgTable('debt', {
   installmentsTotal: integer('installments_total').notNull(),
   installmentsRemaining: integer('installments_remaining').notNull(),
   memberId: text('member_id').notNull().references(() => familyMembers.id, { onDelete: 'cascade' }),
+  creditorName: text('creditor_name'),
+  forMemberIds: jsonb('for_member_ids'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

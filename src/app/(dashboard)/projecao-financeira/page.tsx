@@ -80,7 +80,7 @@ export default function ProjecaoFinanceiraPage() {
   const projection: ProjectedMonth[] = useMemo(() => {
     const result: ProjectedMonth[] = []
     let cumulative = 0
-    for (let m = 6; m < 12; m++) {
+    for (let m = 0; m < 12; m++) {
       const y = currentYear
       const balance = projectedIncome - projectedExpense
       cumulative += balance
@@ -175,7 +175,7 @@ export default function ProjecaoFinanceiraPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Projeção — Próximos 6 Meses</CardTitle>
+          <CardTitle>Projeção Anual</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

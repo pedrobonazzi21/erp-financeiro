@@ -68,8 +68,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             memberId: item.memberId,
             description: item.name,
             recurring: true,
-            sourceType: 'fixed_income',
-            sourceId: item.id,
           });
         }
       } catch (_) {

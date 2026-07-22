@@ -34,6 +34,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       installmentsTotal: body.installmentsTotal,
       installmentsRemaining: body.installmentsRemaining,
       memberId: body.memberId,
+      creditorName: body.creditorName || null,
+      forMemberIds: body.forMemberIds || null,
       updatedAt: new Date(),
     }).where(eq(debts.id, id)).returning();
     if (!item) return notFound();

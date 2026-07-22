@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
       installmentsTotal: body.installmentsTotal,
       installmentsRemaining: body.installmentsRemaining,
       memberId: body.memberId,
+      creditorName: body.creditorName || null,
+      forMemberIds: body.forMemberIds || null,
     }).returning();
     return created(item);
   } catch (e) {

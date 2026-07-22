@@ -70,8 +70,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           creditCardId: old.creditCardId,
           description: `Fatura ${String(old.month).padStart(2, "0")}/${old.year}`,
           recurring: false,
-          sourceType: 'invoice',
-          sourceId: id,
         });
       } catch (_) {
         console.error('Failed to auto-create expense from invoice:', _);

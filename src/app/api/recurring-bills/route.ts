@@ -65,8 +65,6 @@ export async function POST(request: NextRequest) {
             memberId: item.memberId,
             description: item.name,
             recurring: true,
-            sourceType: 'recurring_bill',
-            sourceId: item.id,
           });
         }
       } catch (_) {

@@ -47,6 +47,7 @@ import {
   Repeat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MonthPicker, useMonth } from "@/components/month-picker";
 
 type TransactionType =
   | "income"
@@ -99,6 +100,7 @@ export default function LancamentosPage() {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [open, setOpen] = useState(false);
+  const { month, year, monthKey, onChange: onMonthChange } = useMonth();
 
   const [newType, setNewType] = useState("expense");
   const [newCategoryId, setNewCategoryId] = useState("");
@@ -123,6 +125,7 @@ export default function LancamentosPage() {
     if (typeFilter !== "all") data = data.filter((t) => t.type === typeFilter);
     if (statusFilter !== "all") data = data.filter((t) => t.status === statusFilter);
     if (memberFilter !== "all") data = data.filter((t) => t.member === memberFilter);
+    data = data.filter((t) => t.date.startsWith(monthKey));
 
     data.sort((a, b) => {
       const mul = sortDir === "asc" ? 1 : -1;
@@ -131,7 +134,7 @@ export default function LancamentosPage() {
     });
 
     return data;
-  }, [transactions, search, typeFilter, statusFilter, memberFilter, sortField, sortDir]);
+  }, [transactions, search, typeFilter, statusFilter, memberFilter, sortField, sortDir, monthKey]);
 
   function toggleSort(field: SortField) {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -157,8 +160,8 @@ export default function LancamentosPage() {
     return map;
   }, [members]);
 
-  const totalIncome = filtered.filter((t) => t.type === "income").reduce((a, b) => a + b.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense").reduce((a, b) => a + b.amount, 0);
+  const totalIncome = filtered.filter((t) => t.type === "income").reduce((a, b) => a + Number(b.amount), 0);
+  const totalExpense = filtered.filter((t) => t.type === "expense").reduce((a, b) => a + Number(b.amount), 0);
 
   const memberOptions = [...new Set(transactions.map((t) => t.member))];
 
@@ -384,6 +387,7 @@ export default function LancamentosPage() {
             ))}
           </SelectContent>
         </Select>
+        <MonthPicker month={month} year={year} onChange={onMonthChange} />
       </div>
 
       <div className="rounded-lg border">

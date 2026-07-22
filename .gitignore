@@ -45,3 +45,5 @@ firebase-debug.log
 
 # project notes / secrets
 ideias/
+
+.vercel

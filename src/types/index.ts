@@ -16,6 +16,22 @@ export interface BankAccount {
   type: 'checking' | 'savings' | 'investment'
   balance: number
   memberId: string
+  categoryId?: string
+}
+
+export interface FixedIncome {
+  id: string
+  name: string
+  amount: number
+  categoryId: string
+  accountId: string
+  memberId: string
+  dueDay?: number
+  frequency: string
+  startDate?: string
+  endDate?: string
+  description?: string
+  active: boolean
 }
 
 export interface CreditCard {

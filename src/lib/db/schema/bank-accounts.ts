@@ -1,5 +1,6 @@
 import { pgTable, text, decimal, timestamp, pgEnum, boolean } from 'drizzle-orm/pg-core'
 import { familyMembers } from './families'
+import { categories } from './categories'
 
 export const accountTypeEnum = pgEnum('account_type', ['checking', 'savings', 'investment'])
 
@@ -14,6 +15,7 @@ export const bankAccounts = pgTable('bank_account', {
   pixKey: text('pix_key'),
   joint: boolean('joint').notNull().default(false),
   memberId: text('member_id').notNull().references(() => familyMembers.id, { onDelete: 'cascade' }),
+  categoryId: text('category_id').references(() => categories.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

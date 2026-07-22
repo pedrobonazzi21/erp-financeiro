@@ -24,6 +24,7 @@ import {
   LineChart,
   Settings,
   ListOrdered,
+  CalendarCheck,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { useSettings } from "@/lib/settings-context";
@@ -41,6 +42,7 @@ const routes: SidebarRoute[] = [
   { section: true },
   { label: "Lançamentos", icon: ListOrdered, href: "/lancamentos" },
   { label: "Receitas", icon: TrendingUp, href: "/receitas" },
+  { label: "Receitas Fixas", icon: CalendarCheck, href: "/receitas-fixas" },
   { label: "Despesas", icon: TrendingDown, href: "/despesas" },
   { label: "Contas Recorrentes", icon: Repeat, href: "/contas-recorrentes" },
   { label: "Fluxo de Caixa", icon: BarChart3, href: "/fluxo-caixa" },

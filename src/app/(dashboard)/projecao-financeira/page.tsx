@@ -1,17 +1,10 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -20,50 +13,94 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+} from "@/components/ui/dialog"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import {
-  LineChart,
   TrendingUp,
   TrendingDown,
   Plus,
   Lightbulb,
-} from "lucide-react";
+} from "lucide-react"
+import { useApi } from "@/lib/use-api"
+
+interface FixedIncome {
+  id: string
+  name: string
+  amount: number
+  active: boolean
+}
+interface RecurringBill {
+  id: string
+  name: string
+  amount: number
+  status: string
+}
 
 interface ProjectedMonth {
-  month: string;
-  income: number;
-  expense: number;
-  balance: number;
-  cumulative: number;
+  month: string
+  income: number
+  expense: number
+  balance: number
+  cumulative: number
 }
-
-const projection: ProjectedMonth[] = [
-  { month: "Jul/26", income: 14700, expense: 5430, balance: 9270, cumulative: 9270 },
-  { month: "Ago/26", income: 12200, expense: 5600, balance: 6600, cumulative: 15870 },
-  { month: "Set/26", income: 12200, expense: 5400, balance: 6800, cumulative: 22670 },
-  { month: "Out/26", income: 12200, expense: 5800, balance: 6400, cumulative: 29070 },
-  { month: "Nov/26", income: 13500, expense: 5500, balance: 8000, cumulative: 37070 },
-  { month: "Dez/26", income: 14700, expense: 7200, balance: 7500, cumulative: 44570 },
-];
 
 interface Scenario {
-  id: string;
-  name: string;
-  description: string;
+  id: string
+  name: string
+  description: string
 }
 
-export default function ProjecaoFinanceiraPage() {
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [scenarioOpen, setScenarioOpen] = useState(false);
-  const [scenarioForm, setScenarioForm] = useState({ name: "", description: "" });
+const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
-  const totalIncome = projection.reduce((a, b) => a + b.income, 0);
-  const totalExpense = projection.reduce((a, b) => a + b.expense, 0);
-  const finalBalance = projection[projection.length - 1]?.cumulative || 0;
-  const maxCumulative = Math.max(...projection.map((p) => p.cumulative));
-  const positiveMonths = projection.filter((p) => p.balance >= 0).length;
+export default function ProjecaoFinanceiraPage() {
+  const { data: fixedIncomes } = useApi<FixedIncome>("/api/fixed-incomes")
+  const { data: recurringBills } = useApi<RecurringBill>("/api/recurring-bills")
+
+  const [scenarios, setScenarios] = useState<Scenario[]>([])
+  const [scenarioOpen, setScenarioOpen] = useState(false)
+  const [scenarioForm, setScenarioForm] = useState({ name: "", description: "" })
+
+  const today = new Date()
+  const currentMonth = today.getMonth()
+  const currentYear = today.getFullYear()
+
+  const projectedIncome = useMemo(() => {
+    return fixedIncomes
+      .filter((i) => i.active)
+      .reduce((sum, i) => sum + Number(i.amount), 0)
+  }, [fixedIncomes])
+
+  const projectedExpense = useMemo(() => {
+    return recurringBills
+      .filter((b) => b.status === "pending")
+      .reduce((sum, b) => sum + Number(b.amount), 0)
+  }, [recurringBills])
+
+  const projection: ProjectedMonth[] = useMemo(() => {
+    const result: ProjectedMonth[] = []
+    let cumulative = 0
+    for (let i = 0; i < 6; i++) {
+      const m = (currentMonth + i) % 12
+      const y = currentYear + Math.floor((currentMonth + i) / 12)
+      const balance = projectedIncome - projectedExpense
+      cumulative += balance
+      result.push({
+        month: `${MONTHS[m]}/${String(y).slice(2)}`,
+        income: projectedIncome,
+        expense: projectedExpense,
+        balance,
+        cumulative,
+      })
+    }
+    return result
+  }, [projectedIncome, projectedExpense, currentMonth, currentYear])
+
+  const totalIncome = projection.reduce((a, b) => a + b.income, 0)
+  const totalExpense = projection.reduce((a, b) => a + b.expense, 0)
+  const finalBalance = projection[projection.length - 1]?.cumulative || 0
+  const maxCumulative = Math.max(...projection.map((p) => p.cumulative), 1)
+  const positiveMonths = projection.filter((p) => p.balance >= 0).length
 
   return (
     <div className="space-y-6">
@@ -71,7 +108,7 @@ export default function ProjecaoFinanceiraPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Projeção Financeira</h1>
           <p className="text-muted-foreground">
-            Visualize o saldo futuro com base em receitas, despesas recorrentes e metas.
+            Visualize o saldo futuro com base em receitas fixas e contas recorrentes.
           </p>
         </div>
         <Dialog open={scenarioOpen} onOpenChange={setScenarioOpen}>
@@ -92,7 +129,7 @@ export default function ProjecaoFinanceiraPage() {
             </div>
             <DialogFooter>
               <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-              <Button onClick={() => { setScenarios((prev) => [...prev, { id: crypto.randomUUID(), ...scenarioForm }]); setScenarioForm({ name: "", description: "" }); setScenarioOpen(false); }}>
+              <Button onClick={() => { setScenarios((prev) => [...prev, { id: crypto.randomUUID(), ...scenarioForm }]); setScenarioForm({ name: "", description: "" }); setScenarioOpen(false) }}>
                 Criar simulação
               </Button>
             </DialogFooter>
@@ -131,7 +168,7 @@ export default function ProjecaoFinanceiraPage() {
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Média mensal</span>
             <p className="mt-1 text-xl font-bold">
-              R$ {(totalIncome / projection.length - totalExpense / projection.length).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+              R$ {(projectedIncome - projectedExpense).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
             </p>
           </CardContent>
         </Card>
@@ -143,9 +180,8 @@ export default function ProjecaoFinanceiraPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {projection.map((p, i) => {
-              const barMax = maxCumulative || 1;
-              const cumWidth = (p.cumulative / barMax) * 100;
+            {projection.map((p) => {
+              const cumWidth = (p.cumulative / maxCumulative) * 100
               return (
                 <div key={p.month} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
@@ -174,7 +210,7 @@ export default function ProjecaoFinanceiraPage() {
                     </span>
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         </CardContent>
@@ -189,7 +225,7 @@ export default function ProjecaoFinanceiraPage() {
             <div className="text-center py-8 text-muted-foreground">
               <Lightbulb className="mx-auto h-8 w-8 mb-2 opacity-50" />
               <p className="text-sm">Nenhuma simulação criada ainda.</p>
-              <p className="text-xs mt-1">Crie cenários como "Comprar um carro" ou "Aumentar investimentos" sem alterar dados reais.</p>
+              <p className="text-xs mt-1">Crie cenários como &quot;Comprar um carro&quot; ou &quot;Aumentar investimentos&quot; sem alterar dados reais.</p>
               <Button variant="outline" size="sm" className="mt-4" onClick={() => setScenarioOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> Criar simulação
               </Button>
@@ -210,5 +246,5 @@ export default function ProjecaoFinanceiraPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

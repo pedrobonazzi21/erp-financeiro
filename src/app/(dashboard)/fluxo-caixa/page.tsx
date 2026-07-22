@@ -1,70 +1,84 @@
-"use client";
+"use client"
 
-import { useState } from "react";
+import { useState, useMemo } from "react"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, AreaChart } from "@/components/charts";
-import { cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, Wallet, CalendarDays } from "lucide-react";
+} from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { BarChart } from "@/components/charts"
+import { cn } from "@/lib/utils"
+import { TrendingUp, TrendingDown, Wallet, CalendarDays } from "lucide-react"
+import { useApi } from "@/lib/use-api"
 
-type Period = "daily" | "weekly" | "monthly" | "yearly";
+type Period = "daily" | "weekly" | "monthly" | "yearly"
 
-interface FlowEntry {
-  label: string;
-  income: number;
-  expense: number;
+interface IncomeData {
+  id: string
+  amount: number
+  competenceDate: string
+}
+interface ExpenseData {
+  id: string
+  amount: number
+  competenceDate: string
 }
 
-const monthlyData: FlowEntry[] = [
-  { label: "Jan", income: 12200, expense: 5800 },
-  { label: "Fev", income: 12200, expense: 6200 },
-  { label: "Mar", income: 12200, expense: 5400 },
-  { label: "Abr", income: 13500, expense: 6100 },
-  { label: "Mai", income: 12200, expense: 5900 },
-  { label: "Jun", income: 12200, expense: 5700 },
-  { label: "Jul", income: 14700, expense: 5430 },
-];
+function getPeriodLabel(date: Date, period: Period): string {
+  if (period === "daily") return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+  if (period === "weekly") {
+    const startOfYear = new Date(date.getFullYear(), 0, 1)
+    const week = Math.ceil(((date.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
+    return `Sem ${week}`
+  }
+  if (period === "monthly") return date.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")
+  return String(date.getFullYear())
+}
 
-const weeklyData: FlowEntry[] = [
-  { label: "Sem 1", income: 5200, expense: 1800 },
-  { label: "Sem 2", income: 7000, expense: 2100 },
-  { label: "Sem 3", income: 2500, expense: 980 },
-  { label: "Sem 4", income: 0, expense: 550 },
-];
-
-const dailyData: FlowEntry[] = [
-  { label: "01/07", income: 7000, expense: 0 },
-  { label: "03/07", income: 0, expense: 580 },
-  { label: "05/07", income: 0, expense: 2000 },
-  { label: "08/07", income: 0, expense: 580 },
-  { label: "10/07", income: 5200, expense: 180 },
-  { label: "15/07", income: 0, expense: 55 },
-  { label: "20/07", income: 2500, expense: 119 },
-];
-
-const yearlyData: FlowEntry[] = [
-  { label: "2023", income: 125000, expense: 72000 },
-  { label: "2024", income: 138000, expense: 75000 },
-  { label: "2025", income: 142000, expense: 71000 },
-  { label: "2026", income: 89000, expense: 42000 },
-];
+function getPeriodKey(date: Date, period: Period): string {
+  if (period === "daily") return date.toISOString().slice(0, 10)
+  if (period === "weekly") {
+    const startOfYear = new Date(date.getFullYear(), 0, 1)
+    const week = Math.ceil(((date.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7)
+    return `${date.getFullYear()}-W${week}`
+  }
+  if (period === "monthly") return `${date.getFullYear()}-${date.getMonth()}`
+  return String(date.getFullYear())
+}
 
 export default function FluxoCaixaPage() {
-  const [period, setPeriod] = useState<Period>("monthly");
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [period, setPeriod] = useState<Period>("monthly")
+  const { data: incomes } = useApi<IncomeData>("/api/incomes")
+  const { data: expenses } = useApi<ExpenseData>("/api/expenses")
 
-  const data = period === "daily" ? dailyData : period === "weekly" ? weeklyData : period === "monthly" ? monthlyData : yearlyData;
+  const data = useMemo(() => {
+    const groups: Record<string, { income: number; expense: number; label: string }> = {}
 
-  const totalIncome = data.reduce((a, b) => a + b.income, 0);
-  const totalExpense = data.reduce((a, b) => a + b.expense, 0);
-  const balance = totalIncome - totalExpense;
-  const maxValue = Math.max(...data.map((d) => Math.max(d.income, d.expense)));
+    incomes.forEach((inc) => {
+      const d = new Date(inc.competenceDate)
+      const key = getPeriodKey(d, period)
+      if (!groups[key]) groups[key] = { income: 0, expense: 0, label: getPeriodLabel(d, period) }
+      groups[key].income += Number(inc.amount)
+    })
+
+    expenses.forEach((exp) => {
+      const d = new Date(exp.competenceDate)
+      const key = getPeriodKey(d, period)
+      if (!groups[key]) groups[key] = { income: 0, expense: 0, label: getPeriodLabel(d, period) }
+      groups[key].expense += Number(exp.amount)
+    })
+
+    return Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, value]) => value)
+  }, [incomes, expenses, period])
+
+  const totalIncome = data.reduce((a, b) => a + b.income, 0)
+  const totalExpense = data.reduce((a, b) => a + b.expense, 0)
+  const balance = totalIncome - totalExpense
 
   return (
     <div className="space-y-6">
@@ -141,7 +155,7 @@ export default function FluxoCaixaPage() {
         </CardHeader>
         <CardContent>
           <BarChart
-            data={data.map((d) => ({ ...d, label: d.label }))}
+            data={data}
             xKey="label"
             series={[
               { key: "income", name: "Entradas", color: "#22c55e" },
@@ -154,5 +168,5 @@ export default function FluxoCaixaPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

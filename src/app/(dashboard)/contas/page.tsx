@@ -48,6 +48,7 @@ interface BankAccount {
   pixKey: string | null;
   memberId: string;
   joint: boolean;
+  categoryId: string | null;
 }
 
 interface FamilyMember {
@@ -61,6 +62,13 @@ interface Bank {
   code: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  type: "income" | "expense";
+}
+
 const accountTypeConfig: Record<AccountType, { label: string; icon: typeof Building2 }> = {
   checking: { label: "Corrente", icon: Building2 },
   savings: { label: "Poupança", icon: PiggyBank },
@@ -71,6 +79,7 @@ export default function ContasPage() {
   const { data: accounts, loading, error, create, update, remove } = useApi<BankAccount>('/api/bank-accounts');
   const { data: familyMembers } = useApi<FamilyMember>('/api/family-members');
   const { data: banks } = useApi<Bank>('/api/banks');
+  const { data: categories } = useApi<Category>('/api/categories');
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -85,6 +94,7 @@ export default function ContasPage() {
     pix: "",
     memberId: "",
     joint: false,
+    categoryId: "",
   });
 
   const [importOpen, setImportOpen] = useState(false);
@@ -106,7 +116,7 @@ export default function ContasPage() {
   }
 
   function resetForm() {
-    setForm({ bank: banks[0]?.name || "", customBank: "", agency: "", account: "", type: "checking", balance: "", overdraftLimit: "", pix: "", memberId: familyMembers[0]?.id || "", joint: false });
+    setForm({ bank: banks[0]?.name || "", customBank: "", agency: "", account: "", type: "checking", balance: "", overdraftLimit: "", pix: "", memberId: familyMembers[0]?.id || "", joint: false, categoryId: "" });
     setEditingId(null);
     setOpen(false);
   }
@@ -125,6 +135,7 @@ export default function ContasPage() {
       pix: acc.pixKey || "",
       memberId: acc.memberId,
       joint: acc.joint,
+      categoryId: acc.categoryId || "",
     });
     setOpen(true);
   }
@@ -142,6 +153,7 @@ export default function ContasPage() {
       pixKey: form.pix || null,
       memberId: form.memberId,
       joint: form.joint,
+      categoryId: form.categoryId || null,
     };
     try {
       if (editingId) await update(editingId, payload);
@@ -202,6 +214,15 @@ export default function ContasPage() {
                     <Input value={form.customBank} onChange={(e) => setForm({ ...form, customBank: e.target.value })} placeholder="Digite o nome do banco" />
                   </div>
                 )}
+                <div className="space-y-2">
+                  <Label>Categoria <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+                  <Select value={form.categoryId} onValueChange={(v) => v && setForm({ ...form, categoryId: v })}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Sem categoria" /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label>Agência <span className="text-xs text-muted-foreground">(opcional)</span></Label>
                   <Input value={form.agency} onChange={(e) => setForm({ ...form, agency: e.target.value })} placeholder="0000" />
@@ -297,7 +318,14 @@ export default function ContasPage() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs">{getMemberName(acc.memberId)}</Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    {acc.categoryId && categories.find((c) => c.id === acc.categoryId) && (
+                      <Badge variant="secondary" className="text-xs">
+                        {categories.find((c) => c.id === acc.categoryId)?.name}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">{getMemberName(acc.memberId)}</Badge>
+                  </div>
                 </div>
                 <p className={cn("mt-3 text-2xl font-bold", acc.balance >= 0 ? "text-green-600" : "text-red-600")}>
                   R$ {acc.balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}

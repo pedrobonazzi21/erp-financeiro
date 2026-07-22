@@ -48,7 +48,6 @@ export function ExpenseForm({ editingId, categories, accounts, creditCards, paym
       description: "",
       categoryId: categories[0]?.id || "",
       amount: "",
-      competenceDate: "",
       paidDate: "",
       accountId: accounts[0]?.id || "",
       creditCardId: "",
@@ -124,13 +123,6 @@ export function ExpenseForm({ editingId, categories, accounts, creditCards, paym
               <Input {...field} type="number" step="0.01" placeholder="0,00" />
             )} />
             {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Data de competência</Label>
-            <Controller name="competenceDate" control={control} render={({ field }) => (
-              <Input {...field} type="date" />
-            )} />
           </div>
 
           <div className="space-y-2">

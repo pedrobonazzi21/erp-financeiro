@@ -67,7 +67,7 @@ export default function ReceitasPage() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [sortField, setSortField] = useState<"competenceDate" | "amount">("competenceDate")
+  const [sortField, setSortField] = useState<"receivedDate" | "amount">("receivedDate")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -102,7 +102,7 @@ export default function ReceitasPage() {
     data.sort((a, b) => {
       const mul = sortDir === "asc" ? 1 : -1
       if (sortField === "amount") return mul * (a.amount - b.amount)
-      return mul * (new Date(a.competenceDate).getTime() - new Date(b.competenceDate).getTime())
+      return mul * (new Date(a.receivedDate || a.competenceDate).getTime() - new Date(b.receivedDate || b.competenceDate).getTime())
     })
     return data
   }, [incomes, search, statusFilter, sortField, sortDir, categoryMap])
@@ -111,12 +111,12 @@ export default function ReceitasPage() {
   const totalPending = incomes.filter((i) => i.status === "pending").reduce((a, b) => a + b.amount, 0)
   const totalThisMonth = useMemo(
     () => incomes
-      .filter((i) => i.competenceDate?.startsWith(monthKey))
+      .filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey))
       .reduce((a, b) => a + b.amount, 0),
     [incomes, monthKey]
   )
 
-  function toggleSort(field: "competenceDate" | "amount") {
+  function toggleSort(field: "receivedDate" | "amount") {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     else { setSortField(field); setSortDir("desc") }
   }
@@ -132,18 +132,19 @@ export default function ReceitasPage() {
   }
 
   async function handleSave(data: IncomeFormData, id?: string) {
+    const receivedDate = data.receivedDate || new Date().toISOString().split("T")[0]
     const payload: Partial<Income> = {
       description: data.description,
       categoryId: data.categoryId,
       subcategoryId: data.subcategoryId || "",
       amount: Number(data.amount),
-      competenceDate: data.competenceDate || new Date().toISOString().split("T")[0],
+      competenceDate: receivedDate,
       receivedDate: data.receivedDate || "",
       accountId: data.accountId,
       memberId: data.memberId,
       costCenterId: data.costCenterId || "",
       recurring: data.recurring || false,
-      status: data.receivedDate ? "received" : (data.competenceDate || "") > new Date().toISOString().split("T")[0] ? "scheduled" : "pending",
+      status: data.receivedDate ? "received" : "pending",
     }
     if (id) {
       await update(id, payload)
@@ -221,7 +222,6 @@ export default function ReceitasPage() {
             <SelectItem value="all">Todas</SelectItem>
             <SelectItem value="received">Recebido</SelectItem>
             <SelectItem value="pending">Pendente</SelectItem>
-            <SelectItem value="scheduled">Agendado</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -230,7 +230,7 @@ export default function ReceitasPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><button onClick={() => toggleSort("competenceDate")} className="flex items-center gap-1">Competência <ArrowUpDown className="h-3 w-3" /></button></TableHead>
+              <TableHead><button onClick={() => toggleSort("receivedDate")} className="flex items-center gap-1">Data <ArrowUpDown className="h-3 w-3" /></button></TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead>Conta</TableHead>
@@ -248,7 +248,7 @@ export default function ReceitasPage() {
             ) : (
               filtered.map((income) => (
                 <TableRow key={income.id}>
-                  <TableCell className="text-muted-foreground">{new Date(income.competenceDate).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell className="text-muted-foreground">{income.receivedDate ? new Date(income.receivedDate).toLocaleDateString("pt-BR") : new Date(income.competenceDate).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell className="max-w-[200px] truncate">
                     <span className="flex items-center gap-1">
                       {income.description}
@@ -263,7 +263,7 @@ export default function ReceitasPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={income.status === "received" ? "default" : income.status === "pending" ? "secondary" : "outline"} className="text-xs">
-                      {income.status === "received" ? "Recebido" : income.status === "pending" ? "Pendente" : "Agendado"}
+                      {income.status === "received" ? "Recebido" : "Pendente"}
                     </Badge>
                   </TableCell>
                   <TableCell>

@@ -71,7 +71,7 @@ export default function DespesasPage() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [sortField, setSortField] = useState<"competenceDate" | "amount">("competenceDate")
+  const [sortField, setSortField] = useState<"paidDate" | "amount">("paidDate")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -116,32 +116,33 @@ export default function DespesasPage() {
     data.sort((a, b) => {
       const mul = sortDir === "asc" ? 1 : -1
       if (sortField === "amount") return mul * (a.amount - b.amount)
-      return mul * (new Date(a.competenceDate).getTime() - new Date(b.competenceDate).getTime())
+      return mul * (new Date(a.paidDate || a.competenceDate).getTime() - new Date(b.paidDate || b.competenceDate).getTime())
     })
     return data
   }, [expenses, search, statusFilter, sortField, sortDir, categoryMap])
 
   const totalThisMonth = useMemo(
     () => expenses
-      .filter((e) => e.competenceDate?.startsWith(monthKey))
+      .filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey))
       .reduce((a, b) => a + b.amount, 0),
     [expenses, monthKey]
   )
   const totalPaid = expenses.filter((e) => e.status === "paid").reduce((a, b) => a + b.amount, 0)
   const totalPending = expenses.filter((e) => e.status === "pending" || e.status === "overdue").reduce((a, b) => a + b.amount, 0)
 
-  function toggleSort(field: "competenceDate" | "amount") {
+  function toggleSort(field: "paidDate" | "amount") {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     else { setSortField(field); setSortDir("desc") }
   }
 
   async function handleSave(data: ExpenseFormData, id?: string) {
+    const paidDate = data.paidDate || new Date().toISOString().split("T")[0]
     const installmentLabel = Number(data.installments) > 1 ? `1/${data.installments}` : ""
     const payload: Partial<Expense> = {
       description: data.description,
       categoryId: data.categoryId,
       amount: Number(data.amount),
-      competenceDate: data.competenceDate || new Date().toISOString().split("T")[0],
+      competenceDate: paidDate,
       paidDate: data.paidDate || "",
       accountId: data.paymentType === "account" ? data.accountId || "" : "",
       creditCardId: data.paymentType === "credit" ? data.creditCardId || "" : "",
@@ -240,7 +241,7 @@ export default function DespesasPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><button onClick={() => toggleSort("competenceDate")} className="flex items-center gap-1">Competência <ArrowUpDown className="h-3 w-3" /></button></TableHead>
+              <TableHead><button onClick={() => toggleSort("paidDate")} className="flex items-center gap-1">Data <ArrowUpDown className="h-3 w-3" /></button></TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead>Pagamento</TableHead>
@@ -260,7 +261,7 @@ export default function DespesasPage() {
                 const paymentLabel = `${paymentMethodMap[expense.paymentMethodId] || expense.paymentMethodId} • ${expense.accountId ? (accountMap[expense.accountId] || expense.accountId) : (creditCardMap[expense.creditCardId] || expense.creditCardId)}`
                 return (
                   <TableRow key={expense.id}>
-                    <TableCell className="text-muted-foreground">{new Date(expense.competenceDate).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell className="text-muted-foreground">{expense.paidDate ? new Date(expense.paidDate).toLocaleDateString("pt-BR") : new Date(expense.competenceDate).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {expense.description}
                       {expense.installment && <span className="ml-1 text-xs text-muted-foreground">({expense.installment})</span>}

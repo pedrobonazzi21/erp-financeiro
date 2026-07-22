@@ -48,7 +48,6 @@ export function IncomeForm({ editingId, categories, accounts, members, costCente
       categoryId: categories[0]?.id || "",
       subcategoryId: "",
       amount: "",
-      competenceDate: "",
       receivedDate: "",
       accountId: accounts[0]?.id || "",
       memberId: members[0]?.id || "",
@@ -120,13 +119,6 @@ export function IncomeForm({ editingId, categories, accounts, members, costCente
                   {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
                 </SelectContent>
               </Select>
-            )} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Data de competência</Label>
-            <Controller name="competenceDate" control={control} render={({ field }) => (
-              <Input {...field} type="date" />
             )} />
           </div>
 

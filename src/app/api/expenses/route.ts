@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return serverError(e);
+    console.error('Expenses POST error:', e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Internal server error" }, { status: 500 });
   }
 }

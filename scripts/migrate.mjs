@@ -85,6 +85,11 @@ const migrations = [
   `ALTER TABLE "transfer" ADD COLUMN IF NOT EXISTS "external_to" text`,
   `ALTER TABLE "debt" ADD COLUMN IF NOT EXISTS "creditor_name" text`,
   `ALTER TABLE "debt" ADD COLUMN IF NOT EXISTS "for_member_ids" jsonb`,
+  `ALTER TABLE "expense" ADD COLUMN IF NOT EXISTS "subcategory_id" text`,
+  `ALTER TABLE "expense" ADD COLUMN IF NOT EXISTS "split_members" jsonb`,
+  `ALTER TABLE "income" ADD COLUMN IF NOT EXISTS "subcategory_id" text`,
+  `ALTER TABLE "income" ADD COLUMN IF NOT EXISTS "cost_center_id" text`,
+  `ALTER TABLE "income" ADD COLUMN IF NOT EXISTS "payment_method_id" text`,
 ]
 
 async function run() {

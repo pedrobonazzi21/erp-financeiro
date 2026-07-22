@@ -2,6 +2,14 @@
 
 import { useApi } from "@/lib/use-api";
 import { useState, useMemo } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getCurrentYear } from "@/components/month-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +57,7 @@ export default function DashboardPage() {
   const { data: goals = [] } = useApi<{id:string; name:string; savedAmount:number; targetAmount:number; deadline:string}>('/api/goals');
   const { data: categories = [] } = useApi<{id:string; name:string; icon:string}>('/api/categories');
 
+  const [chartYear, setChartYear] = useState(getCurrentYear());
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
 
@@ -57,8 +66,8 @@ export default function DashboardPage() {
   const monthlyData = useMemo(() => {
     const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     const data = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(currentYear, currentMonth - i, 1);
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(chartYear, i, 1);
       const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       const monthIncomes = incomes
         .filter(inc => inc.competenceDate?.startsWith(monthKey))
@@ -74,7 +83,7 @@ export default function DashboardPage() {
       });
     }
     return data;
-  }, [incomes, expenses]);
+  }, [incomes, expenses, chartYear]);
 
   const mockMonthIncome = useMemo(
     () => incomes
@@ -179,11 +188,12 @@ export default function DashboardPage() {
   }, [recurringBills]);
 
   const projection = useMemo(() => {
-    if (monthlyData.length < 2) return [{ month: 'Julho', balance: 0 }];
-    const last = monthlyData[monthlyData.length - 1].saldo;
-    return ['Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => ({
+    if (monthlyData.length < 2) return [{ month: 'Janeiro', balance: 0 }];
+    const last = monthlyData[monthlyData.length - 1]?.saldo || 0;
+    const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    return months.map((m, i) => ({
       month: m,
-      balance: Math.max(0, last + (last * 0.05 * i)),
+      balance: Math.max(0, last + (last * 0.05 * (i + 1))),
     }));
   }, [monthlyData]);
 
@@ -547,15 +557,30 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm">Visão geral das suas finanças</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)}>
-          <Settings2 className="mr-2 h-4 w-4" />
-          Widgets
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select
+            value={String(chartYear)}
+            onValueChange={(v) => setChartYear(Number(v))}
+          >
+            <SelectTrigger className="w-[110px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 8 }, (_, i) => getCurrentYear() - 5 + i).map((y) => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)}>
+            <Settings2 className="mr-2 h-4 w-4" />
+            Widgets
+          </Button>
+        </div>
       </div>
 
       {/* Widget config panel */}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useApi } from "@/lib/use-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,6 +37,7 @@ import {
   Repeat,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MonthPicker, useMonth } from "@/components/month-picker"
 
 interface Income {
   id: string
@@ -70,6 +71,7 @@ export default function ReceitasPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const { month, year, monthKey, onChange: onMonthChange } = useMonth()
 
   const categoryMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -107,9 +109,12 @@ export default function ReceitasPage() {
 
   const totalReceived = incomes.filter((i) => i.status === "received").reduce((a, b) => a + b.amount, 0)
   const totalPending = incomes.filter((i) => i.status === "pending").reduce((a, b) => a + b.amount, 0)
-  const totalThisMonth = incomes
-    .filter((i) => i.competenceDate.startsWith("2026-07"))
-    .reduce((a, b) => a + b.amount, 0)
+  const totalThisMonth = useMemo(
+    () => incomes
+      .filter((i) => i.competenceDate?.startsWith(monthKey))
+      .reduce((a, b) => a + b.amount, 0),
+    [incomes, monthKey]
+  )
 
   function toggleSort(field: "competenceDate" | "amount") {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -181,6 +186,7 @@ export default function ReceitasPage() {
               <TrendingUp className="h-4 w-4 text-green-500" />
             </div>
             <p className="mt-1 text-xl font-bold text-green-600">R$ {totalThisMonth.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+            <p className="text-xs text-muted-foreground">{monthKey}</p>
           </CardContent>
         </Card>
         <Card>
@@ -204,6 +210,7 @@ export default function ReceitasPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <MonthPicker month={month} year={year} onChange={onMonthChange} />
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar receitas..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />

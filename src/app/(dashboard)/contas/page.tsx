@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,13 +40,12 @@ type AccountType = "checking" | "savings" | "investment";
 interface BankAccount {
   id: string;
   bank: string;
-  code: string;
-  agency: string;
-  account: string;
+  agency: string | null;
+  account: string | null;
   type: AccountType;
   balance: number;
-  overdraftLimit: number;
-  pix: string;
+  overdraftLimit: number | null;
+  pixKey: string | null;
   memberId: string;
   joint: boolean;
 }
@@ -56,36 +55,33 @@ interface FamilyMember {
   name: string;
 }
 
+interface Bank {
+  id: string;
+  name: string;
+  code: string;
+}
+
 const accountTypeConfig: Record<AccountType, { label: string; icon: typeof Building2 }> = {
   checking: { label: "Corrente", icon: Building2 },
   savings: { label: "Poupança", icon: PiggyBank },
   investment: { label: "Investimento", icon: Landmark },
 };
 
-const banks = [
-  { name: "Nubank", code: "260" },
-  { name: "Banco do Brasil", code: "001" },
-  { name: "Caixa Econômica Federal", code: "104" },
-  { name: "Itaú", code: "341" },
-  { name: "Bradesco", code: "237" },
-  { name: "Santander", code: "033" },
-  { name: "Inter", code: "077" },
-  { name: "PicPay", code: "380" },
-];
-
 export default function ContasPage() {
   const { data: accounts, loading, error, create, update, remove } = useApi<BankAccount>('/api/bank-accounts');
   const { data: familyMembers } = useApi<FamilyMember>('/api/family-members');
+  const { data: banks } = useApi<Bank>('/api/banks');
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    bank: banks[0].name,
+    bank: "",
+    customBank: "",
     agency: "",
     account: "",
     type: "checking" as AccountType,
     balance: "",
-    overdraftLimit: "0",
+    overdraftLimit: "",
     pix: "",
     memberId: "",
     joint: false,
@@ -94,6 +90,15 @@ export default function ContasPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importFiles, setImportFiles] = useState<File[]>([]);
 
+  const bankNames = banks.map((b) => b.name);
+  const isCustomBank = form.bank === "__other__";
+
+  useEffect(() => {
+    if (banks.length > 0 && !form.bank) {
+      setForm((prev) => ({ ...prev, bank: banks[0].name }));
+    }
+  }, [banks]);
+
   const totalBalance = accounts.reduce((a, b) => a + b.balance, 0);
 
   function getMemberName(id: string) {
@@ -101,28 +106,40 @@ export default function ContasPage() {
   }
 
   function resetForm() {
-    setForm({ bank: banks[0].name, agency: "", account: "", type: "checking", balance: "", overdraftLimit: "0", pix: "", memberId: familyMembers[0]?.id || "", joint: false });
+    setForm({ bank: banks[0]?.name || "", customBank: "", agency: "", account: "", type: "checking", balance: "", overdraftLimit: "", pix: "", memberId: familyMembers[0]?.id || "", joint: false });
     setEditingId(null);
     setOpen(false);
   }
 
   function handleEdit(acc: BankAccount) {
+    const known = banks.find((b) => b.name === acc.bank);
     setEditingId(acc.id);
-    setForm({ bank: acc.bank, agency: acc.agency, account: acc.account, type: acc.type, balance: String(acc.balance), overdraftLimit: String(acc.overdraftLimit), pix: acc.pix, memberId: acc.memberId, joint: acc.joint });
+    setForm({
+      bank: known ? acc.bank : "__other__",
+      customBank: known ? "" : acc.bank,
+      agency: acc.agency || "",
+      account: acc.account || "",
+      type: acc.type,
+      balance: String(acc.balance),
+      overdraftLimit: acc.overdraftLimit ? String(acc.overdraftLimit) : "",
+      pix: acc.pixKey || "",
+      memberId: acc.memberId,
+      joint: acc.joint,
+    });
     setOpen(true);
   }
 
   async function handleSave() {
-    if (!form.account) return;
+    const resolvedBank = isCustomBank ? form.customBank.trim() : form.bank;
+    if (!resolvedBank) return;
     const payload = {
-      bank: form.bank,
-      code: banks.find((b) => b.name === form.bank)?.code || "",
-      agency: form.agency,
-      account: form.account,
+      bank: resolvedBank,
+      agency: form.agency || null,
+      account: form.account || null,
       type: form.type,
       balance: Number(form.balance) || 0,
-      overdraftLimit: Number(form.overdraftLimit) || 0,
-      pix: form.pix,
+      overdraftLimit: form.overdraftLimit ? Number(form.overdraftLimit) : null,
+      pixKey: form.pix || null,
       memberId: form.memberId,
       joint: form.joint,
     };
@@ -161,9 +178,10 @@ export default function ContasPage() {
                 <div className="space-y-2">
                   <Label>Banco</Label>
                   <Select value={form.bank} onValueChange={(v) => v && setForm({ ...form, bank: v })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione um banco" /></SelectTrigger>
                     <SelectContent>
-                      {banks.map((b) => <SelectItem key={b.code} value={b.name}>{b.name} ({b.code})</SelectItem>)}
+                      {banks.map((b) => <SelectItem key={b.id} value={b.name}>{b.name} {b.code ? `(${b.code})` : ""}</SelectItem>)}
+                      <SelectItem value="__other__">Outro (digitar nome)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -178,30 +196,36 @@ export default function ContasPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {isCustomBank && (
+                  <div className="space-y-2 col-span-2">
+                    <Label>Nome do banco</Label>
+                    <Input value={form.customBank} onChange={(e) => setForm({ ...form, customBank: e.target.value })} placeholder="Digite o nome do banco" />
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <Label>Agência</Label>
+                  <Label>Agência <span className="text-xs text-muted-foreground">(opcional)</span></Label>
                   <Input value={form.agency} onChange={(e) => setForm({ ...form, agency: e.target.value })} placeholder="0000" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Conta</Label>
+                  <Label>Conta <span className="text-xs text-muted-foreground">(opcional)</span></Label>
                   <Input value={form.account} onChange={(e) => setForm({ ...form, account: e.target.value })} placeholder="00000-0" />
                 </div>
                 <div className="space-y-2">
                   <Label>Saldo inicial (R$)</Label>
-                  <Input type="number" step="0.01" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} />
+                  <Input type="number" step="0.01" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} placeholder="0,00" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Limite (R$)</Label>
-                  <Input type="number" step="0.01" value={form.overdraftLimit} onChange={(e) => setForm({ ...form, overdraftLimit: e.target.value })} />
+                  <Label>Limite (R$) <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+                  <Input type="number" step="0.01" value={form.overdraftLimit} onChange={(e) => setForm({ ...form, overdraftLimit: e.target.value })} placeholder="0,00" />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label>Chave PIX</Label>
+                  <Label>Chave PIX <span className="text-xs text-muted-foreground">(opcional)</span></Label>
                   <Input value={form.pix} onChange={(e) => setForm({ ...form, pix: e.target.value })} placeholder="CPF, e-mail, telefone ou chave aleatória" />
                 </div>
                 <div className="space-y-2">
                   <Label>Responsável</Label>
                   <Select value={form.memberId} onValueChange={(v) => v && setForm({ ...form, memberId: v })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       {familyMembers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                     </SelectContent>
@@ -267,7 +291,9 @@ export default function ContasPage() {
                     <div>
                       <p className="font-medium">{acc.bank}</p>
                       <p className="text-xs text-muted-foreground">
-                        {accountTypeConfig[acc.type].label} • Ag {acc.agency} • C/c {acc.account}
+                        {accountTypeConfig[acc.type].label}
+                        {acc.agency ? ` • Ag ${acc.agency}` : ""}
+                        {acc.account ? ` • C/c ${acc.account}` : ""}
                       </p>
                     </div>
                   </div>
@@ -277,10 +303,10 @@ export default function ContasPage() {
                   R$ {acc.balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
                 <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{acc.pix ? "PIX ✓" : "Sem PIX"}</span>
+                  <span>{acc.pixKey ? "PIX ✓" : "Sem PIX"}</span>
                   <div className="flex items-center gap-1">
                     {acc.joint && <Badge variant="secondary" className="text-[10px] px-1 py-0">Conjunta</Badge>}
-                    {acc.overdraftLimit > 0 && <span>Limite: R$ {acc.overdraftLimit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>}
+                    {acc.overdraftLimit ? <span>Limite: R$ {Number(acc.overdraftLimit).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span> : null}
                   </div>
                 </div>
                 <div className="mt-3 flex gap-1">
@@ -306,7 +332,7 @@ export default function ContasPage() {
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.bank} - {a.account}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>{a.bank}{a.account ? ` - ${a.account}` : ""}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

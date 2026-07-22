@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { MonthPicker, useMonth } from "@/components/month-picker"
 import { useApi } from "@/lib/use-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -74,6 +75,7 @@ export default function DespesasPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const { month, year, monthKey, onChange: onMonthChange } = useMonth()
 
   const categoryMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -119,9 +121,12 @@ export default function DespesasPage() {
     return data
   }, [expenses, search, statusFilter, sortField, sortDir, categoryMap])
 
-  const totalThisMonth = expenses
-    .filter((e) => e.competenceDate.startsWith("2026-07"))
-    .reduce((a, b) => a + b.amount, 0)
+  const totalThisMonth = useMemo(
+    () => expenses
+      .filter((e) => e.competenceDate?.startsWith(monthKey))
+      .reduce((a, b) => a + b.amount, 0),
+    [expenses, monthKey]
+  )
   const totalPaid = expenses.filter((e) => e.status === "paid").reduce((a, b) => a + b.amount, 0)
   const totalPending = expenses.filter((e) => e.status === "pending" || e.status === "overdue").reduce((a, b) => a + b.amount, 0)
 
@@ -191,6 +196,7 @@ export default function DespesasPage() {
               <TrendingDown className="h-4 w-4 text-red-500" />
             </div>
             <p className="mt-1 text-xl font-bold text-red-600">R$ {totalThisMonth.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+            <p className="text-xs text-muted-foreground">{monthKey}</p>
           </CardContent>
         </Card>
         <Card>
@@ -214,6 +220,7 @@ export default function DespesasPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <MonthPicker month={month} year={year} onChange={onMonthChange} />
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar despesas..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />

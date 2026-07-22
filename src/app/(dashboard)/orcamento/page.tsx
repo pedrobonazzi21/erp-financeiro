@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Pencil, Trash2, Wallet, AlertTriangle, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
+import { MonthPicker, useMonth } from "@/components/month-picker";
 
 interface BudgetItem {
   id: string;
@@ -47,9 +48,6 @@ interface Category {
   name: string;
 }
 
-const currentMonth = 7;
-const currentYear = 2026;
-
 export default function OrcamentoPage() {
   const { data: budgets, loading, error, create, update, remove } = useApi<BudgetItem>('/api/budgets');
   const { data: families, loading: loadingFamilies } = useApi<Family>('/api/families');
@@ -57,9 +55,13 @@ export default function OrcamentoPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ categoryId: "", limit: "" });
+  const { month: selectedMonth, year: selectedYear, monthKey, onChange: onMonthChange } = useMonth();
 
   const currentFamily = families[0];
-  const familyBudgets = budgets.filter((b) => b.familyId === currentFamily?.id);
+  const familyBudgets = useMemo(
+    () => budgets.filter((b) => b.familyId === currentFamily?.id && b.month === selectedMonth && b.year === selectedYear),
+    [budgets, currentFamily, selectedMonth, selectedYear]
+  );
   const categories = apiCategories.map((c) => ({ id: c.id, name: c.name }));
 
   const defaultCategoryId = categories[0]?.id || "";
@@ -90,8 +92,8 @@ export default function OrcamentoPage() {
       categoryId: form.categoryId,
       limit: Number(form.limit),
       spent: 0,
-      month: currentMonth,
-      year: currentYear,
+      month: selectedMonth,
+      year: selectedYear,
       familyId: currentFamily.id,
     };
 
@@ -141,14 +143,16 @@ export default function OrcamentoPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Orçamento</h1>
           <p className="text-muted-foreground">
             {currentFamily && `Família ${currentFamily.name} — `}Defina limites por categoria.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
+        <div className="flex items-center gap-2">
+          <MonthPicker month={selectedMonth} year={selectedYear} onChange={onMonthChange} />
+          <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" /> Novo orçamento
           </DialogTrigger>
@@ -175,6 +179,7 @@ export default function OrcamentoPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

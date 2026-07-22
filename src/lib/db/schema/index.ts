@@ -1,6 +1,7 @@
 export { users } from './auth'
 export { families, familyMembers, profileEnum } from './families'
 export { bankAccounts, accountTypeEnum } from './bank-accounts'
+export { banks } from './banks'
 export { creditCards } from './credit-cards'
 export { categories, categoryTypeEnum } from './categories'
 export { costCenters } from './cost-centers'

@@ -1,14 +1,18 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { bankAccounts } from "@/lib/db/schema";
+import { banks } from "@/lib/db/schema";
 import { requireAuth, ok, created, badRequest, serverError } from "@/lib/api-helpers";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(request);
-    const all = await getDb().select().from(bankAccounts).orderBy(bankAccounts.bank);
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
+    const all = search
+      ? await getDb().select().from(banks).where(like(banks.name, `%${search}%`)).orderBy(banks.name)
+      : await getDb().select().from(banks).orderBy(banks.name);
     return ok(all);
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {
@@ -22,17 +26,13 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth(request);
     const body = await request.json();
-    const [item] = await getDb().insert(bankAccounts).values({
+    if (!body.name?.trim()) {
+      return badRequest("Nome do banco é obrigatório");
+    }
+    const [item] = await getDb().insert(banks).values({
       id: crypto.randomUUID(),
-      bank: body.bank,
-      agency: body.agency || null,
-      account: body.account || null,
-      type: body.type || "checking",
-      balance: body.balance || "0",
-      overdraftLimit: body.overdraftLimit ?? null,
-      pixKey: body.pixKey || null,
-      joint: body.joint || false,
-      memberId: body.memberId,
+      name: body.name.trim(),
+      code: body.code?.trim() || null,
     }).returning();
     return created(item);
   } catch (e) {

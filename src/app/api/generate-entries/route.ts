@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { fixedIncomes, recurringBills, incomes, expenses } from "@/lib/db/schema";
-import { requireAuth, ok, serverError } from "@/lib/api-helpers";
+import { requireAuth, ok, serverError, addBalance, subtractBalance } from "@/lib/api-helpers";
 import { eq, and, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
             ));
 
           if (!existing || existing.count === 0) {
-            await getDb().insert(incomes).values({
+            const [newIncome] = await getDb().insert(incomes).values({
               id: crypto.randomUUID(),
               categoryId: fi.categoryId,
               amount: fi.amount,
@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
               memberId: fi.memberId,
               description: fi.name,
               recurring: true,
-            });
+            }).returning();
+            await addBalance(newIncome.accountId, newIncome.amount);
             generated.incomes++;
           }
           m = nextMonth;
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
             ));
 
           if (!existing || existing.count === 0) {
-            await getDb().insert(expenses).values({
+            const [newExpense] = await getDb().insert(expenses).values({
               id: crypto.randomUUID(),
               categoryId: rb.categoryId,
               amount: rb.amount,
@@ -96,7 +97,8 @@ export async function GET(request: NextRequest) {
               memberId: rb.memberId,
               description: rb.name,
               recurring: true,
-            });
+            }).returning();
+            if (newExpense.accountId) await subtractBalance(newExpense.accountId, newExpense.amount);
             generated.expenses++;
           }
           m = nextMonth;

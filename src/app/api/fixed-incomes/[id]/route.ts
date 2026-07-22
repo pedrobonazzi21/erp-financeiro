@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { fixedIncomes, incomes } from "@/lib/db/schema";
-import { requireAuth, ok, noContent, notFound, badRequest, serverError } from "@/lib/api-helpers";
+import { requireAuth, ok, noContent, notFound, badRequest, serverError, addBalance } from "@/lib/api-helpers";
 import { eq, and, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -66,7 +66,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 sql`${incomes.competenceDate} < ${nextMonth}`,
               ));
             if (!existing || existing.count === 0) {
-              await getDb().insert(incomes).values({
+              const [newIncome] = await getDb().insert(incomes).values({
                 id: crypto.randomUUID(),
                 categoryId: item.categoryId,
                 amount: item.amount,
@@ -75,7 +75,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
                 memberId: item.memberId,
                 description: item.name,
                 recurring: true,
-              });
+              }).returning();
+              await addBalance(newIncome.accountId, newIncome.amount);
             }
             m = nextMonth;
           }

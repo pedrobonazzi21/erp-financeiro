@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { verifyIdToken } from "@/lib/firebase/admin"
+import { getDb } from "@/lib/db"
+import { bankAccounts } from "@/lib/db/schema"
+import { eq, sql } from "drizzle-orm"
 
 export async function requireAuth(request: NextRequest): Promise<string> {
   try {
@@ -37,4 +40,18 @@ export function notFound(message = "Resource not found") {
 export function serverError(error: unknown) {
   console.error(error)
   return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+}
+
+export async function addBalance(accountId: string | null | undefined, amount: string | number) {
+  if (!accountId) return
+  await getDb().update(bankAccounts).set({
+    balance: sql`${bankAccounts.balance} + ${Number(amount)}`,
+  }).where(eq(bankAccounts.id, accountId))
+}
+
+export async function subtractBalance(accountId: string | null | undefined, amount: string | number) {
+  if (!accountId) return
+  await getDb().update(bankAccounts).set({
+    balance: sql`${bankAccounts.balance} - ${Number(amount)}`,
+  }).where(eq(bankAccounts.id, accountId))
 }

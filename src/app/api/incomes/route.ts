@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { incomes } from "@/lib/db/schema";
-import { requireAuth, ok, created, badRequest, serverError } from "@/lib/api-helpers";
+import { requireAuth, ok, created, badRequest, serverError, addBalance } from "@/lib/api-helpers";
 import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       receipt: body.receipt,
       recurring: body.recurring ?? false,
     }).returning();
+    if (item.accountId) await addBalance(item.accountId, item.amount);
     return created(item);
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { expenses } from "@/lib/db/schema";
-import { requireAuth, ok, noContent, notFound, badRequest, serverError, addBalance } from "@/lib/api-helpers";
+import { requireAuth, ok, noContent, notFound, badRequest, serverError, addBalance, subtractCreditUsed } from "@/lib/api-helpers";
 import { eq } from "drizzle-orm";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -59,6 +59,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const [item] = await getDb().delete(expenses).where(eq(expenses.id, id)).returning();
     if (!item) return notFound();
     if (item.accountId) await addBalance(item.accountId, item.amount);
+    if (item.creditCardId) await subtractCreditUsed(item.creditCardId, item.amount);
     return noContent();
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {

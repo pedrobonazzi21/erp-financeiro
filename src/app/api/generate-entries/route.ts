@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { fixedIncomes, recurringBills, incomes, expenses } from "@/lib/db/schema";
-import { requireAuth, ok, serverError, addBalance, subtractBalance } from "@/lib/api-helpers";
+import { requireAuth, ok, serverError, addBalance, subtractBalance, addCreditUsed } from "@/lib/api-helpers";
 import { eq, and, sql } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -98,6 +98,7 @@ export async function GET(request: NextRequest) {
               recurring: true,
             }).returning();
             if (newExpense.accountId) await subtractBalance(newExpense.accountId, newExpense.amount);
+            if (newExpense.creditCardId) await addCreditUsed(newExpense.creditCardId, newExpense.amount);
             generated.expenses++;
           }
           m = nextMonth;

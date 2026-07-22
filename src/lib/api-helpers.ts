@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { verifyIdToken } from "@/lib/firebase/admin"
 import { getDb } from "@/lib/db"
-import { bankAccounts } from "@/lib/db/schema"
+import { bankAccounts, creditCards } from "@/lib/db/schema"
 import { eq, sql } from "drizzle-orm"
 
 export async function requireAuth(request: NextRequest): Promise<string> {
@@ -54,4 +54,18 @@ export async function subtractBalance(accountId: string | null | undefined, amou
   await getDb().update(bankAccounts).set({
     balance: sql`${bankAccounts.balance} - ${Number(amount)}`,
   }).where(eq(bankAccounts.id, accountId))
+}
+
+export async function addCreditUsed(cardId: string | null | undefined, amount: string | number) {
+  if (!cardId) return
+  await getDb().update(creditCards).set({
+    used: sql`${creditCards.used} + ${Number(amount)}`,
+  }).where(eq(creditCards.id, cardId))
+}
+
+export async function subtractCreditUsed(cardId: string | null | undefined, amount: string | number) {
+  if (!cardId) return
+  await getDb().update(creditCards).set({
+    used: sql`${creditCards.used} - ${Number(amount)}`,
+  }).where(eq(creditCards.id, cardId))
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useApi } from "@/lib/use-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,9 +44,9 @@ interface RecurringBill {
   id: string;
   name: string;
   amount: number;
-  category: string;
-  account: string;
-  member: string;
+  categoryId: string;
+  accountId: string;
+  memberId: string;
   dueDay: number;
   frequency: "monthly" | "weekly" | "yearly" | "bimonthly" | "quarterly";
   status: "active" | "paused";
@@ -67,26 +67,38 @@ const frequencies = [
 export default function ContasRecorrentesPage() {
   const { data: bills, loading, error, create, update, remove } = useApi<RecurringBill>('/api/recurring-bills');
   const { data: apiCategories } = useApi<{ id: string; name: string }>('/api/categories');
-  const { data: apiAccounts } = useApi<{ id: string; name: string }>('/api/bank-accounts');
+  const { data: apiAccounts } = useApi<{ id: string; bank: string }>('/api/bank-accounts');
   const { data: apiMembers } = useApi<{ id: string; name: string }>('/api/family-members');
-  const categories = apiCategories.length > 0 ? apiCategories.map((c) => c.name) : ["Salário", "Assinaturas", "Moradia", "Saúde", "Transporte", "Alimentação", "Educação", "Lazer"];
-  const accounts = apiAccounts.length > 0 ? apiAccounts.map((a) => a.name) : ["Nubank", "Itaú", "Inter", "Bradesco", "Caixa"];
-  const members = apiMembers.length > 0 ? apiMembers.map((m) => m.name) : ["Carlos", "Maria", "João"];
+  const categoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (apiCategories || []).forEach((c) => { map[c.id] = c.name; });
+    return map;
+  }, [apiCategories]);
+  const accountMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (apiAccounts || []).forEach((a) => { map[a.id] = a.bank; });
+    return map;
+  }, [apiAccounts]);
+  const memberMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (apiMembers || []).forEach((m) => { map[m.id] = m.name; });
+    return map;
+  }, [apiMembers]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
+  const [form, setForm] = useState({ name: "", amount: "", categoryId: apiCategories[0]?.id || "", accountId: apiAccounts[0]?.id || "", memberId: apiMembers[0]?.id || "", dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
 
   const totalMonthly = bills.filter((b) => b.frequency === "monthly" && b.status === "active").reduce((a, b) => a + Number(b.amount), 0);
 
   function resetForm() {
-    setForm({ name: "", amount: "", category: categories[0], account: accounts[0], member: members[0], dueDay: "15", frequency: "monthly", autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
+    setForm({ name: "", amount: "", categoryId: apiCategories[0]?.id || "", accountId: apiAccounts[0]?.id || "", memberId: apiMembers[0]?.id || "", dueDay: "15", frequency: "monthly", autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
     setEditingId(null);
     setOpen(false);
   }
 
   function handleEdit(bill: RecurringBill) {
     setEditingId(bill.id);
-    setForm({ name: bill.name, amount: String(bill.amount), category: bill.category, account: bill.account, member: bill.member, dueDay: String(bill.dueDay), frequency: bill.frequency, autoGenerate: bill.autoGenerate, startDate: bill.startDate, endDate: bill.endDate ? new Date(bill.endDate).toISOString().split("T")[0] : "" });
+    setForm({ name: bill.name, amount: String(bill.amount), categoryId: bill.categoryId, accountId: bill.accountId, memberId: bill.memberId, dueDay: String(bill.dueDay), frequency: bill.frequency, autoGenerate: bill.autoGenerate, startDate: bill.startDate, endDate: bill.endDate ? new Date(bill.endDate).toISOString().split("T")[0] : "" });
     setOpen(true);
   }
 
@@ -97,9 +109,9 @@ export default function ContasRecorrentesPage() {
     const payload = {
       name: form.name,
       amount: Number(form.amount),
-      category: form.category,
-      account: form.account,
-      member: form.member,
+      categoryId: form.categoryId,
+      accountId: form.accountId,
+      memberId: form.memberId,
       dueDay: Number(form.dueDay),
       frequency: form.frequency,
       autoGenerate: form.autoGenerate,
@@ -154,10 +166,10 @@ export default function ContasRecorrentesPage() {
               </div>
               <div className="space-y-2">
                 <Label>Categoria</Label>
-                <Select value={form.category} onValueChange={(v) => v && setForm({ ...form, category: v })}>
+                <Select value={form.categoryId} onValueChange={(v) => v && setForm({ ...form, categoryId: v })}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {(apiCategories || []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -172,19 +184,19 @@ export default function ContasRecorrentesPage() {
               </div>
               <div className="space-y-2">
                 <Label>Conta</Label>
-                <Select value={form.account} onValueChange={(v) => v && setForm({ ...form, account: v })}>
+                <Select value={form.accountId} onValueChange={(v) => v && setForm({ ...form, accountId: v })}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {accounts.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                    {(apiAccounts || []).map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Responsável</Label>
-                <Select value={form.member} onValueChange={(v) => v && setForm({ ...form, member: v })}>
+                <Select value={form.memberId} onValueChange={(v) => v && setForm({ ...form, memberId: v })}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {members.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {(apiMembers || []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -257,11 +269,11 @@ export default function ContasRecorrentesPage() {
             {bills.map((bill) => (
               <TableRow key={bill.id}>
                 <TableCell className="font-medium">{bill.name}</TableCell>
-                <TableCell><Badge variant="outline">{bill.category}</Badge></TableCell>
+                <TableCell><Badge variant="outline">{categoryMap[bill.categoryId] || bill.categoryId}</Badge></TableCell>
                 <TableCell className="tabular-nums">R$ {bill.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                 <TableCell>Dia {bill.dueDay}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{frequencies.find((f) => f.value === bill.frequency)?.label}</TableCell>
-                <TableCell className="text-muted-foreground">{bill.account}</TableCell>
+                <TableCell className="text-muted-foreground">{accountMap[bill.accountId] || bill.accountId}</TableCell>
                 <TableCell className="text-muted-foreground">{new Date(bill.nextGeneration).toLocaleDateString("pt-BR")}</TableCell>
                 <TableCell>
                   <Badge variant={bill.status === "active" ? "default" : "secondary"} className="text-xs">

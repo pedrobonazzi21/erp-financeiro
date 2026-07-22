@@ -51,37 +51,47 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Recurring bills → Expense entries
+    // Recurring bills → Expense entries (backfill all months)
     const pendingBills = await getDb().select().from(recurringBills).where(
       and(eq(recurringBills.status, "pending"), eq(recurringBills.suspended, false))
     );
     for (const rb of pendingBills) {
-      if (rb.endDate && new Date(rb.endDate) < startOfMonth) continue;
       try {
-        const [existing] = await getDb()
-          .select({ count: sql<number>`count(*)::int` })
-          .from(expenses)
-          .where(and(
-            eq(expenses.description, rb.name),
-            eq(expenses.accountId, rb.accountId),
-            eq(expenses.categoryId, rb.categoryId),
-            eq(expenses.recurring, true),
-            sql`${expenses.competenceDate} >= ${startOfMonth}`,
-            sql`${expenses.competenceDate} <= ${endOfMonth}`,
-          ));
+        const start = new Date(rb.startDate);
+        const end = rb.endDate ? new Date(rb.endDate) : endOfMonth;
+        if (end < startOfMonth) continue;
+        let m = new Date(Math.max(start.getTime(), startOfMonth.getTime()));
+        m = new Date(m.getFullYear(), m.getMonth(), 1);
+        const last = new Date(Math.min(end.getTime(), endOfMonth.getTime()));
+        while (m <= last) {
+          const compDate = new Date(m);
+          const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+          const [existing] = await getDb()
+            .select({ count: sql<number>`count(*)::int` })
+            .from(expenses)
+            .where(and(
+              eq(expenses.description, rb.name),
+              eq(expenses.accountId, rb.accountId),
+              eq(expenses.categoryId, rb.categoryId),
+              eq(expenses.recurring, true),
+              sql`${expenses.competenceDate} >= ${compDate}`,
+              sql`${expenses.competenceDate} < ${nextMonth}`,
+            ));
 
-        if (!existing || existing.count === 0) {
-          await getDb().insert(expenses).values({
-            id: crypto.randomUUID(),
-            categoryId: rb.categoryId,
-            amount: rb.amount,
-            competenceDate: startOfMonth,
-            accountId: rb.accountId,
-            memberId: rb.memberId,
-            description: rb.name,
-            recurring: true,
-          });
-          generated.expenses++;
+          if (!existing || existing.count === 0) {
+            await getDb().insert(expenses).values({
+              id: crypto.randomUUID(),
+              categoryId: rb.categoryId,
+              amount: rb.amount,
+              competenceDate: compDate,
+              accountId: rb.accountId,
+              memberId: rb.memberId,
+              description: rb.name,
+              recurring: true,
+            });
+            generated.expenses++;
+          }
+          m = nextMonth;
         }
       } catch (_) {
         console.error('Failed to generate expense for recurring bill:', rb.id, _);

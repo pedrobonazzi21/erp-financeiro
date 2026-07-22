@@ -40,35 +40,49 @@ export async function POST(request: NextRequest) {
       year: body.year,
     }).returning();
 
-    // Auto-create expense entry for current month (isolated)
-    if (item.status === "pending" && !item.suspended && (!item.endDate || new Date(item.endDate) >= new Date())) {
+    // Backfill expense entries from startDate up to now (isolated)
+    if (item.status === "pending" && !item.suspended) {
       try {
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const [existing] = await getDb()
-          .select({ count: sql<number>`count(*)::int` })
-          .from(expenses)
-          .where(and(
-            eq(expenses.description, item.name),
-            eq(expenses.accountId, item.accountId),
-            eq(expenses.categoryId, item.categoryId),
-            eq(expenses.recurring, true),
-            sql`${expenses.competenceDate} >= ${startOfMonth}`,
-          ));
-        if (!existing || existing.count === 0) {
-          await getDb().insert(expenses).values({
-            id: crypto.randomUUID(),
-            categoryId: item.categoryId,
-            amount: item.amount,
-            competenceDate: startOfMonth,
-            accountId: item.accountId,
-            memberId: item.memberId,
-            description: item.name,
-            recurring: true,
-          });
+        const start = new Date(item.startDate);
+        const end = item.endDate ? new Date(item.endDate) : new Date();
+        if (end >= start) {
+          const yearStart = start.getFullYear();
+          const monthStart = start.getMonth();
+          const yearEnd = end.getFullYear();
+          const monthEnd = end.getMonth();
+          let m = new Date(yearStart, monthStart, 1);
+          const last = new Date(yearEnd, monthEnd, 1);
+          while (m <= last) {
+            const compDate = new Date(m);
+            const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+            const [existing] = await getDb()
+              .select({ count: sql<number>`count(*)::int` })
+              .from(expenses)
+              .where(and(
+                eq(expenses.description, item.name),
+                eq(expenses.accountId, item.accountId),
+                eq(expenses.categoryId, item.categoryId),
+                eq(expenses.recurring, true),
+                sql`${expenses.competenceDate} >= ${compDate}`,
+                sql`${expenses.competenceDate} < ${nextMonth}`,
+              ));
+            if (!existing || existing.count === 0) {
+              await getDb().insert(expenses).values({
+                id: crypto.randomUUID(),
+                categoryId: item.categoryId,
+                amount: item.amount,
+                competenceDate: compDate,
+                accountId: item.accountId,
+                memberId: item.memberId,
+                description: item.name,
+                recurring: true,
+              });
+            }
+            m = nextMonth;
+          }
         }
       } catch (_) {
-        console.error('Failed to auto-create expense entry:', _);
+        console.error('Failed to auto-create past expense entries:', _);
       }
     }
 

@@ -139,15 +139,21 @@ export default function ReceitasFixasPage() {
       if (editingId) await update(editingId, payload)
       else await create(payload)
       resetForm()
-    } catch {}
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao salvar")
+    }
   }
 
   async function handleToggleActive(inc: FixedIncome) {
-    try { await update(inc.id, { active: !inc.active }) } catch {}
+    try { await update(inc.id, { active: !inc.active }) } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao atualizar");
+    }
   }
 
   async function handleDelete(id: string) {
-    try { await remove(id) } catch {}
+    try { await remove(id) } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao excluir");
+    }
   }
 
   return (

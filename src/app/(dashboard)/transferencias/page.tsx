@@ -237,7 +237,7 @@ export default function TransferenciasPage() {
                   R$ {t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="icon-xs" onClick={() => { try { remove(t.id); } catch {} }}>
+                  <Button variant="ghost" size="icon-xs" onClick={() => { try { remove(t.id); } catch (e) { alert(e instanceof Error ? e.message : "Erro ao excluir"); } }}>
                     <Trash2 className="h-3 w-3 text-destructive" />
                   </Button>
                 </TableCell>

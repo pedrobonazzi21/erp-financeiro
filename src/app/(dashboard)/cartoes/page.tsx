@@ -118,11 +118,15 @@ export default function CartoesPage() {
       if (editingId) await update(editingId, payload);
       else await create(payload);
       resetForm();
-    } catch {}
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao salvar");
+    }
   }
 
   async function handleDelete(id: string) {
-    try { await remove(id); } catch {}
+    try { await remove(id); } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao excluir");
+    }
   }
 
   return (

@@ -20,32 +20,36 @@ export async function GET(request: NextRequest) {
     // Fixed incomes → Income entries
     const activeFixedIncomes = await getDb().select().from(fixedIncomes).where(eq(fixedIncomes.active, true));
     for (const fi of activeFixedIncomes) {
-      const [existing] = await getDb()
-        .select({ count: sql<number>`count(*)::int` })
-        .from(incomes)
-        .where(and(
-          eq(incomes.description, fi.name),
-          eq(incomes.accountId, fi.accountId),
-          eq(incomes.categoryId, fi.categoryId),
-          eq(incomes.recurring, true),
-          sql`${incomes.competenceDate} >= ${startOfMonth}`,
-          sql`${incomes.competenceDate} <= ${endOfMonth}`,
-        ));
+      try {
+        const [existing] = await getDb()
+          .select({ count: sql<number>`count(*)::int` })
+          .from(incomes)
+          .where(and(
+            eq(incomes.description, fi.name),
+            eq(incomes.accountId, fi.accountId),
+            eq(incomes.categoryId, fi.categoryId),
+            eq(incomes.recurring, true),
+            sql`${incomes.competenceDate} >= ${startOfMonth}`,
+            sql`${incomes.competenceDate} <= ${endOfMonth}`,
+          ));
 
-      if (!existing || existing.count === 0) {
-        await getDb().insert(incomes).values({
-          id: crypto.randomUUID(),
-          categoryId: fi.categoryId,
-          amount: fi.amount,
-          competenceDate: startOfMonth,
-          accountId: fi.accountId,
-          memberId: fi.memberId,
-          description: fi.name,
-          recurring: true,
-          sourceType: 'fixed_income',
-          sourceId: fi.id,
-        });
-        generated.incomes++;
+        if (!existing || existing.count === 0) {
+          await getDb().insert(incomes).values({
+            id: crypto.randomUUID(),
+            categoryId: fi.categoryId,
+            amount: fi.amount,
+            competenceDate: startOfMonth,
+            accountId: fi.accountId,
+            memberId: fi.memberId,
+            description: fi.name,
+            recurring: true,
+            sourceType: 'fixed_income',
+            sourceId: fi.id,
+          });
+          generated.incomes++;
+        }
+      } catch (_) {
+        console.error('Failed to generate income for fixed income:', fi.id, _);
       }
     }
 
@@ -54,32 +58,36 @@ export async function GET(request: NextRequest) {
       and(eq(recurringBills.status, "pending"), eq(recurringBills.suspended, false))
     );
     for (const rb of pendingBills) {
-      const [existing] = await getDb()
-        .select({ count: sql<number>`count(*)::int` })
-        .from(expenses)
-        .where(and(
-          eq(expenses.description, rb.name),
-          eq(expenses.accountId, rb.accountId),
-          eq(expenses.categoryId, rb.categoryId),
-          eq(expenses.recurring, true),
-          sql`${expenses.competenceDate} >= ${startOfMonth}`,
-          sql`${expenses.competenceDate} <= ${endOfMonth}`,
-        ));
+      try {
+        const [existing] = await getDb()
+          .select({ count: sql<number>`count(*)::int` })
+          .from(expenses)
+          .where(and(
+            eq(expenses.description, rb.name),
+            eq(expenses.accountId, rb.accountId),
+            eq(expenses.categoryId, rb.categoryId),
+            eq(expenses.recurring, true),
+            sql`${expenses.competenceDate} >= ${startOfMonth}`,
+            sql`${expenses.competenceDate} <= ${endOfMonth}`,
+          ));
 
-      if (!existing || existing.count === 0) {
-        await getDb().insert(expenses).values({
-          id: crypto.randomUUID(),
-          categoryId: rb.categoryId,
-          amount: rb.amount,
-          competenceDate: startOfMonth,
-          accountId: rb.accountId,
-          memberId: rb.memberId,
-          description: rb.name,
-          recurring: true,
-          sourceType: 'recurring_bill',
-          sourceId: rb.id,
-        });
-        generated.expenses++;
+        if (!existing || existing.count === 0) {
+          await getDb().insert(expenses).values({
+            id: crypto.randomUUID(),
+            categoryId: rb.categoryId,
+            amount: rb.amount,
+            competenceDate: startOfMonth,
+            accountId: rb.accountId,
+            memberId: rb.memberId,
+            description: rb.name,
+            recurring: true,
+            sourceType: 'recurring_bill',
+            sourceId: rb.id,
+          });
+          generated.expenses++;
+        }
+      } catch (_) {
+        console.error('Failed to generate expense for recurring bill:', rb.id, _);
       }
     }
 

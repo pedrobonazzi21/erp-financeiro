@@ -53,25 +53,29 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       updatedAt: new Date(),
     }).where(eq(invoices.id, id)).returning();
 
-    // When invoice is marked as paid, auto-create an expense entry
+    // When invoice is marked as paid, auto-create an expense entry (isolated)
     if (body.status === "paid" && old.status !== "paid") {
-      const [card] = await getDb().select().from(creditCards).where(eq(creditCards.id, old.creditCardId));
-      const categoryId = await getOrCreateCreditCardExpenseCategory();
-      const amount = body.paidAmount || body.amount || old.amount;
+      try {
+        const [card] = await getDb().select().from(creditCards).where(eq(creditCards.id, old.creditCardId));
+        const categoryId = await getOrCreateCreditCardExpenseCategory();
+        const amount = body.paidAmount || body.amount || old.amount;
 
-      await getDb().insert(expenses).values({
-        id: crypto.randomUUID(),
-        categoryId,
-        amount,
-        competenceDate: body.paidAt || body.dueDate || new Date(),
-        paidDate: body.paidAt || new Date(),
-        memberId: card?.memberId || "",
-        creditCardId: old.creditCardId,
-        description: `Fatura ${String(old.month).padStart(2, "0")}/${old.year}`,
+        await getDb().insert(expenses).values({
+          id: crypto.randomUUID(),
+          categoryId,
+          amount,
+          competenceDate: body.paidAt || body.dueDate || new Date(),
+          paidDate: body.paidAt || new Date(),
+          memberId: card?.memberId || "",
+          creditCardId: old.creditCardId,
+          description: `Fatura ${String(old.month).padStart(2, "0")}/${old.year}`,
           recurring: false,
           sourceType: 'invoice',
           sourceId: id,
         });
+      } catch (_) {
+        console.error('Failed to auto-create expense from invoice:', _);
+      }
     }
 
     return ok(item);

@@ -37,33 +37,37 @@ export async function POST(request: NextRequest) {
       active: body.active ?? true,
     }).returning();
 
-    // Auto-create income entry for current month
+    // Auto-create income entry for current month (isolated — don't break main request)
     if (item.active) {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const [existing] = await getDb()
-        .select({ count: sql<number>`count(*)::int` })
-        .from(incomes)
-        .where(and(
-          eq(incomes.description, item.name),
-          eq(incomes.accountId, item.accountId),
-          eq(incomes.categoryId, item.categoryId),
-          eq(incomes.recurring, true),
-          sql`${incomes.competenceDate} >= ${startOfMonth}`,
-        ));
-      if (!existing || existing.count === 0) {
-        await getDb().insert(incomes).values({
-          id: crypto.randomUUID(),
-          categoryId: item.categoryId,
-          amount: item.amount,
-          competenceDate: startOfMonth,
-          accountId: item.accountId,
-          memberId: item.memberId,
-          description: item.name,
-          recurring: true,
-          sourceType: 'fixed_income',
-          sourceId: item.id,
-        });
+      try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const [existing] = await getDb()
+          .select({ count: sql<number>`count(*)::int` })
+          .from(incomes)
+          .where(and(
+            eq(incomes.description, item.name),
+            eq(incomes.accountId, item.accountId),
+            eq(incomes.categoryId, item.categoryId),
+            eq(incomes.recurring, true),
+            sql`${incomes.competenceDate} >= ${startOfMonth}`,
+          ));
+        if (!existing || existing.count === 0) {
+          await getDb().insert(incomes).values({
+            id: crypto.randomUUID(),
+            categoryId: item.categoryId,
+            amount: item.amount,
+            competenceDate: startOfMonth,
+            accountId: item.accountId,
+            memberId: item.memberId,
+            description: item.name,
+            recurring: true,
+            sourceType: 'fixed_income',
+            sourceId: item.id,
+          });
+        }
+      } catch (_) {
+        console.error('Failed to auto-create income entry:', _);
       }
     }
 

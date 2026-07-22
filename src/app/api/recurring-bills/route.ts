@@ -40,33 +40,37 @@ export async function POST(request: NextRequest) {
       year: body.year,
     }).returning();
 
-    // Auto-create expense entry for current month
+    // Auto-create expense entry for current month (isolated)
     if (item.status === "pending" && !item.suspended) {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const [existing] = await getDb()
-        .select({ count: sql<number>`count(*)::int` })
-        .from(expenses)
-        .where(and(
-          eq(expenses.description, item.name),
-          eq(expenses.accountId, item.accountId),
-          eq(expenses.categoryId, item.categoryId),
-          eq(expenses.recurring, true),
-          sql`${expenses.competenceDate} >= ${startOfMonth}`,
-        ));
-      if (!existing || existing.count === 0) {
-        await getDb().insert(expenses).values({
-          id: crypto.randomUUID(),
-          categoryId: item.categoryId,
-          amount: item.amount,
-          competenceDate: startOfMonth,
-          accountId: item.accountId,
-          memberId: item.memberId,
-          description: item.name,
-          recurring: true,
-          sourceType: 'recurring_bill',
-          sourceId: item.id,
-        });
+      try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const [existing] = await getDb()
+          .select({ count: sql<number>`count(*)::int` })
+          .from(expenses)
+          .where(and(
+            eq(expenses.description, item.name),
+            eq(expenses.accountId, item.accountId),
+            eq(expenses.categoryId, item.categoryId),
+            eq(expenses.recurring, true),
+            sql`${expenses.competenceDate} >= ${startOfMonth}`,
+          ));
+        if (!existing || existing.count === 0) {
+          await getDb().insert(expenses).values({
+            id: crypto.randomUUID(),
+            categoryId: item.categoryId,
+            amount: item.amount,
+            competenceDate: startOfMonth,
+            accountId: item.accountId,
+            memberId: item.memberId,
+            description: item.name,
+            recurring: true,
+            sourceType: 'recurring_bill',
+            sourceId: item.id,
+          });
+        }
+      } catch (_) {
+        console.error('Failed to auto-create expense entry:', _);
       }
     }
 

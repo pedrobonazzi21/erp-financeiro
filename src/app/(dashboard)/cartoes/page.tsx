@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
+import { useMemo } from "react";
 
 interface CreditCard {
   id: string;
@@ -63,8 +64,18 @@ interface BankAccount {
   bank: string;
 }
 
+interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  competenceDate: string;
+  creditCardId: string;
+  installment: string;
+}
+
 export default function CartoesPage() {
   const { data: cards, loading, error, create, update, remove } = useApi<CreditCard>('/api/credit-cards');
+  const { data: expenses } = useApi<Expense>('/api/expenses');
   const { data: bankAccounts } = useApi<BankAccount>('/api/bank-accounts');
   const { data: familyMembers } = useApi<FamilyMember>('/api/family-members');
   const [open, setOpen] = useState(false);
@@ -312,21 +323,19 @@ export default function CartoesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell>15/06</TableCell>
-                    <TableCell>Netflix</TableCell>
-                    <TableCell className="text-right">R$ 55,00</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>20/06</TableCell>
-                    <TableCell>Jantar</TableCell>
-                    <TableCell className="text-right">R$ 320,00</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>25/06</TableCell>
-                    <TableCell>Curso online (1/6)</TableCell>
-                    <TableCell className="text-right">R$ 75,00</TableCell>
-                  </TableRow>
+                  {(expenses || []).filter((e) => e.creditCardId === invoiceCard.id).length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-4">Nenhuma despesa neste cartão.</TableCell>
+                    </TableRow>
+                  ) : (
+                    (expenses || []).filter((e) => e.creditCardId === invoiceCard.id).map((e) => (
+                      <TableRow key={e.id}>
+                        <TableCell>{new Date(e.competenceDate).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>{e.description}{e.installment ? ` (${e.installment})` : ""}</TableCell>
+                        <TableCell className="text-right">R$ {Number(e.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>

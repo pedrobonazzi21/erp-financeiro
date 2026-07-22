@@ -17,12 +17,11 @@ export async function GET(request: NextRequest) {
 
     const generated = { incomes: 0, expenses: 0 };
 
-    // Fixed incomes → Income entries (backfill all from startDate)
+    // Fixed incomes → Income entries (backfill all from startDate, or just current month)
     const activeFixedIncomes = await getDb().select().from(fixedIncomes).where(eq(fixedIncomes.active, true));
     for (const fi of activeFixedIncomes) {
-      if (!fi.startDate) continue;
       try {
-        let m = new Date(fi.startDate);
+        let m = fi.startDate ? new Date(fi.startDate) : new Date(startOfMonth);
         m = new Date(m.getFullYear(), m.getMonth(), 1);
         const last = new Date(endOfMonth);
         while (m <= last) {

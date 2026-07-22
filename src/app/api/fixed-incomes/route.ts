@@ -37,43 +37,41 @@ export async function POST(request: NextRequest) {
       active: body.active ?? true,
     }).returning();
 
-    // Backfill income entries from startDate up to now (isolated)
-    if (item.active && item.startDate) {
+    // Backfill income entries from startDate up to now (or just current month)
+    if (item.active) {
       try {
-        const start = new Date(item.startDate);
-        const end = new Date();
-        if (end >= start) {
-          let m = new Date(start.getFullYear(), start.getMonth(), 1);
-          const last = new Date(end.getFullYear(), end.getMonth(), 1);
-          while (m <= last) {
-            const compDate = new Date(m);
-            const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
-            const [existing] = await getDb()
-              .select({ count: sql<number>`count(*)::int` })
-              .from(incomes)
-              .where(and(
-                eq(incomes.description, item.name),
-                eq(incomes.accountId, item.accountId),
-                eq(incomes.categoryId, item.categoryId),
-                eq(incomes.recurring, true),
-                sql`${incomes.competenceDate} >= ${compDate}`,
-                sql`${incomes.competenceDate} < ${nextMonth}`,
-              ));
-            if (!existing || existing.count === 0) {
-              const [newIncome] = await getDb().insert(incomes).values({
-                id: crypto.randomUUID(),
-                categoryId: item.categoryId,
-                amount: item.amount,
-                competenceDate: compDate,
-                accountId: item.accountId,
-                memberId: item.memberId,
-                description: item.name,
-                recurring: true,
-              }).returning();
-              await addBalance(newIncome.accountId, newIncome.amount);
-            }
-            m = nextMonth;
+        const now = new Date();
+        let m = item.startDate ? new Date(item.startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
+        m = new Date(m.getFullYear(), m.getMonth(), 1);
+        const last = new Date(now.getFullYear(), now.getMonth(), 1);
+        while (m <= last) {
+          const compDate = new Date(m);
+          const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+          const [existing] = await getDb()
+            .select({ count: sql<number>`count(*)::int` })
+            .from(incomes)
+            .where(and(
+              eq(incomes.description, item.name),
+              eq(incomes.accountId, item.accountId),
+              eq(incomes.categoryId, item.categoryId),
+              eq(incomes.recurring, true),
+              sql`${incomes.competenceDate} >= ${compDate}`,
+              sql`${incomes.competenceDate} < ${nextMonth}`,
+            ));
+          if (!existing || existing.count === 0) {
+            const [newIncome] = await getDb().insert(incomes).values({
+              id: crypto.randomUUID(),
+              categoryId: item.categoryId,
+              amount: item.amount,
+              competenceDate: compDate,
+              accountId: item.accountId,
+              memberId: item.memberId,
+              description: item.name,
+              recurring: true,
+            }).returning();
+            await addBalance(newIncome.accountId, newIncome.amount);
           }
+          m = nextMonth;
         }
       } catch (_) {
         console.error('Failed to backfill income entries:', _);

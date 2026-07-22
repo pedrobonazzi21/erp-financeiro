@@ -37,35 +37,45 @@ export async function POST(request: NextRequest) {
       active: body.active ?? true,
     }).returning();
 
-    // Auto-create income entry for current month (isolated — don't break main request)
-    if (item.active) {
+    // Backfill income entries from startDate up to now (isolated)
+    if (item.active && item.startDate) {
       try {
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const [existing] = await getDb()
-          .select({ count: sql<number>`count(*)::int` })
-          .from(incomes)
-          .where(and(
-            eq(incomes.description, item.name),
-            eq(incomes.accountId, item.accountId),
-            eq(incomes.categoryId, item.categoryId),
-            eq(incomes.recurring, true),
-            sql`${incomes.competenceDate} >= ${startOfMonth}`,
-          ));
-        if (!existing || existing.count === 0) {
-          await getDb().insert(incomes).values({
-            id: crypto.randomUUID(),
-            categoryId: item.categoryId,
-            amount: item.amount,
-            competenceDate: startOfMonth,
-            accountId: item.accountId,
-            memberId: item.memberId,
-            description: item.name,
-            recurring: true,
-          });
+        const start = new Date(item.startDate);
+        const end = new Date();
+        if (end >= start) {
+          let m = new Date(start.getFullYear(), start.getMonth(), 1);
+          const last = new Date(end.getFullYear(), end.getMonth(), 1);
+          while (m <= last) {
+            const compDate = new Date(m);
+            const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+            const [existing] = await getDb()
+              .select({ count: sql<number>`count(*)::int` })
+              .from(incomes)
+              .where(and(
+                eq(incomes.description, item.name),
+                eq(incomes.accountId, item.accountId),
+                eq(incomes.categoryId, item.categoryId),
+                eq(incomes.recurring, true),
+                sql`${incomes.competenceDate} >= ${compDate}`,
+                sql`${incomes.competenceDate} < ${nextMonth}`,
+              ));
+            if (!existing || existing.count === 0) {
+              await getDb().insert(incomes).values({
+                id: crypto.randomUUID(),
+                categoryId: item.categoryId,
+                amount: item.amount,
+                competenceDate: compDate,
+                accountId: item.accountId,
+                memberId: item.memberId,
+                description: item.name,
+                recurring: true,
+              });
+            }
+            m = nextMonth;
+          }
         }
       } catch (_) {
-        console.error('Failed to auto-create income entry:', _);
+        console.error('Failed to backfill income entries:', _);
       }
     }
 

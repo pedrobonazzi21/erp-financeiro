@@ -48,11 +48,6 @@ interface FixedIncome {
   categoryId: string
   accountId: string
   memberId: string
-  dueDay: number | null
-  frequency: string
-  startDate: string | null
-  endDate: string | null
-  description: string | null
   active: boolean
 }
 
@@ -76,11 +71,6 @@ export default function ReceitasFixasPage() {
     categoryId: "",
     accountId: "",
     memberId: "",
-    dueDay: "",
-    frequency: "monthly",
-    startDate: "",
-    endDate: "",
-    description: "",
   })
 
   const categoryMap = useMemo(() => {
@@ -101,14 +91,6 @@ export default function ReceitasFixasPage() {
     return map
   }, [members])
 
-  const frequencyLabels: Record<string, string> = {
-    weekly: "Semanal",
-    monthly: "Mensal",
-    bimonthly: "Bimestral",
-    quarterly: "Trimestral",
-    yearly: "Anual",
-  }
-
   const filtered = useMemo(() => {
     if (!search) return incomes
     const q = search.toLowerCase()
@@ -123,14 +105,9 @@ export default function ReceitasFixasPage() {
     setForm({
       name: "",
       amount: "",
-      categoryId: categories?.[0]?.id || "",
+      categoryId: categories?.find((c) => c.type === "income")?.id || categories?.[0]?.id || "",
       accountId: accounts?.[0]?.id || "",
       memberId: members?.[0]?.id || "",
-      dueDay: "",
-      frequency: "monthly",
-      startDate: "",
-      endDate: "",
-      description: "",
     })
     setEditingId(null)
     setOpen(false)
@@ -144,11 +121,6 @@ export default function ReceitasFixasPage() {
       categoryId: inc.categoryId,
       accountId: inc.accountId,
       memberId: inc.memberId,
-      dueDay: inc.dueDay ? String(inc.dueDay) : "",
-      frequency: inc.frequency,
-      startDate: inc.startDate ? inc.startDate.slice(0, 10) : "",
-      endDate: inc.endDate ? inc.endDate.slice(0, 10) : "",
-      description: inc.description || "",
     })
     setOpen(true)
   }
@@ -161,11 +133,6 @@ export default function ReceitasFixasPage() {
       categoryId: form.categoryId,
       accountId: form.accountId,
       memberId: form.memberId,
-      dueDay: form.dueDay ? Number(form.dueDay) : null,
-      frequency: form.frequency,
-      startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
-      endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
-      description: form.description || null,
       active: true,
     }
     try {
@@ -198,7 +165,7 @@ export default function ReceitasFixasPage() {
             <Plus className="mr-2 h-4 w-4" />
             Nova receita fixa
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar" : "Nova"} receita fixa</DialogTitle>
             </DialogHeader>
@@ -239,33 +206,6 @@ export default function ReceitasFixasPage() {
                     {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Dia de vencimento</Label>
-                <Input type="number" min={1} max={31} value={form.dueDay} onChange={(e) => setForm({ ...form, dueDay: e.target.value })} placeholder="Ex: 5" />
-              </div>
-              <div className="space-y-2">
-                <Label>Frequência</Label>
-                <Select value={form.frequency} onValueChange={(v) => v && setForm({ ...form, frequency: v })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(frequencyLabels).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Data de início</Label>
-                <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Data de fim</Label>
-                <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label>Descrição</Label>
-                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Observações..." />
               </div>
             </div>
             <DialogFooter>
@@ -323,8 +263,6 @@ export default function ReceitasFixasPage() {
               <TableHead>Nome</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead>Conta</TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Frequência</TableHead>
               <TableHead>Responsável</TableHead>
               <TableHead className="text-right">Valor</TableHead>
               <TableHead>Status</TableHead>
@@ -334,7 +272,7 @@ export default function ReceitasFixasPage() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhuma receita fixa encontrada.</TableCell>
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nenhuma receita fixa encontrada.</TableCell>
               </TableRow>
             ) : (
               filtered.map((inc) => (
@@ -347,8 +285,6 @@ export default function ReceitasFixasPage() {
                   </TableCell>
                   <TableCell><Badge variant="outline">{categoryMap[inc.categoryId] || inc.categoryId}</Badge></TableCell>
                   <TableCell className="text-muted-foreground">{accountMap[inc.accountId] || inc.accountId}</TableCell>
-                  <TableCell>{inc.dueDay ? `Dia ${inc.dueDay}` : "-"}</TableCell>
-                  <TableCell>{frequencyLabels[inc.frequency] || inc.frequency}</TableCell>
                   <TableCell className="text-muted-foreground">{memberMap[inc.memberId] || inc.memberId}</TableCell>
                   <TableCell className={cn("text-right font-medium tabular-nums text-green-600")}>
                     +R$ {inc.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}

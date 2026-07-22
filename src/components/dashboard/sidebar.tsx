@@ -25,6 +25,7 @@ import {
   Settings,
   ListOrdered,
   CalendarCheck,
+  Tags,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { useSettings } from "@/lib/settings-context";
@@ -62,6 +63,7 @@ const routes: SidebarRoute[] = [
   { label: "Documentos", icon: FileText, href: "/documentos" },
   { label: "Relatórios", icon: FileText, href: "/relatorios" },
   { section: true },
+  { label: "Categorias", icon: Tags, href: "/configuracoes?tab=categorias" },
   { label: "Configurações", icon: Settings, href: "/configuracoes" },
 ];
 

@@ -1,20 +1,26 @@
+"use client"
+
+import { useSearchParams } from "next/navigation"
 import {
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@/components/ui/tabs";
-import { PerfilForm } from "./_components/perfil";
-import { TipoUso } from "./_components/tipo-uso";
-import { Aparencia } from "./_components/aparencia";
-import { Categorias } from "./_components/categorias";
-import { Subcategorias } from "./_components/subcategorias";
-import { TagsManager } from "./_components/tags";
-import { Bancos } from "./_components/bancos";
-import { MetodosPagamento } from "./_components/metodos-pagamento";
-import { Notificacoes } from "./_components/notificacoes";
+} from "@/components/ui/tabs"
+import { PerfilForm } from "./_components/perfil"
+import { TipoUso } from "./_components/tipo-uso"
+import { Aparencia } from "./_components/aparencia"
+import { Categorias } from "./_components/categorias"
+import { Subcategorias } from "./_components/subcategorias"
+import { TagsManager } from "./_components/tags"
+import { Bancos } from "./_components/bancos"
+import { MetodosPagamento } from "./_components/metodos-pagamento"
+import { Notificacoes } from "./_components/notificacoes"
 
 export default function ConfiguracoesPage() {
+  const searchParams = useSearchParams()
+  const tab = searchParams.get("tab") || "perfil"
+
   return (
     <div className="space-y-6">
       <div>
@@ -24,7 +30,7 @@ export default function ConfiguracoesPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="perfil" orientation="horizontal">
+      <Tabs defaultValue={tab} key={tab} orientation="horizontal">
         <TabsList variant="line" className="w-full flex-wrap">
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
           <TabsTrigger value="tipo-uso">Tipo de Uso</TabsTrigger>
@@ -68,5 +74,5 @@ export default function ConfiguracoesPage() {
         </div>
       </Tabs>
     </div>
-  );
+  )
 }

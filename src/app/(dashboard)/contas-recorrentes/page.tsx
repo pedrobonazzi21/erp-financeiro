@@ -125,8 +125,6 @@ export default function ContasRecorrentesPage() {
       alert(e instanceof Error ? e.message : "Erro ao salvar");
     }
   }
-    resetForm();
-  }
 
   function toggleStatus(id: string) {
     const bill = bills.find((b) => b.id === id);

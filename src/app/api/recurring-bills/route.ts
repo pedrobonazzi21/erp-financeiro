@@ -44,41 +44,42 @@ export async function POST(request: NextRequest) {
     // Backfill expense entries from startDate up to now (isolated)
     if (item.status === "pending" && !item.suspended) {
       try {
-        const start = new Date(item.startDate);
-        const end = item.endDate ? new Date(item.endDate) : new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth()));
-        if (end >= start) {
-          let m = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth()));
-          const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
-          while (m <= last) {
-            const compDate = new Date(m);
-            const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
-            const [existing] = await getDb()
-              .select({ count: sql<number>`count(*)::int` })
-              .from(expenses)
-              .where(and(
-                eq(expenses.sourceType, "recurring_bill"),
-                eq(expenses.sourceId, item.id),
-                sql`${expenses.competenceDate} >= ${compDate}`,
-                sql`${expenses.competenceDate} < ${nextMonth}`,
-              ));
-            if (!existing || existing.count === 0) {
-              const [newExpense] = await getDb().insert(expenses).values({
-                id: crypto.randomUUID(),
-                categoryId: item.categoryId,
-                amount: item.amount,
-                competenceDate: compDate,
-                accountId: item.accountId,
-                memberId: item.memberId,
-                description: item.name,
-                recurring: true,
-                sourceType: "recurring_bill",
-                sourceId: item.id,
-              }).returning();
-              if (newExpense.accountId) await subtractBalance(newExpense.accountId, newExpense.amount);
-              if (newExpense.creditCardId) await addCreditUsed(newExpense.creditCardId, newExpense.amount);
-            }
-            m = nextMonth;
+        const now = new Date();
+        const endDate = body.endDate ? new Date(body.endDate) : null;
+        const nowUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()));
+        let m = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth()));
+        const last = endDate
+          ? new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1))
+          : new Date(nowUtc);
+        while (m <= last) {
+          const compDate = new Date(m);
+          const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
+          const [existing] = await getDb()
+            .select({ count: sql<number>`count(*)::int` })
+            .from(expenses)
+            .where(and(
+              eq(expenses.sourceType, "recurring_bill"),
+              eq(expenses.sourceId, item.id),
+              sql`${expenses.competenceDate} >= ${compDate}`,
+              sql`${expenses.competenceDate} < ${nextMonth}`,
+            ));
+          if (!existing || existing.count === 0) {
+            const [newExpense] = await getDb().insert(expenses).values({
+              id: crypto.randomUUID(),
+              categoryId: item.categoryId,
+              amount: item.amount,
+              competenceDate: compDate,
+              accountId: item.accountId,
+              memberId: item.memberId,
+              description: item.name,
+              recurring: true,
+              sourceType: "recurring_bill",
+              sourceId: item.id,
+            }).returning();
+            if (newExpense.accountId) await subtractBalance(newExpense.accountId, newExpense.amount);
+            if (newExpense.creditCardId) await addCreditUsed(newExpense.creditCardId, newExpense.amount);
           }
+          m = nextMonth;
         }
       } catch (_) {
         console.error('Failed to auto-create past expense entries:', _);

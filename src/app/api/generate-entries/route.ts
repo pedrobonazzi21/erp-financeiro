@@ -22,8 +22,10 @@ export async function GET(request: NextRequest) {
     const activeFixedIncomes = await getDb().select().from(fixedIncomes).where(eq(fixedIncomes.active, true));
     for (const fi of activeFixedIncomes) {
       try {
-        let m = fi.startDate ? new Date(fi.startDate) : new Date(startOfMonth);
-        m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
+        const startIso = fi.startDate?.toISOString();
+        const startYear = startIso ? parseInt(startIso.substring(0, 4)) : year;
+        const startMonth = startIso ? parseInt(startIso.substring(5, 7)) : month;
+        let m = new Date(Date.UTC(startYear, startMonth - 1));
         const last = new Date(endOfMonth);
         while (m <= last) {
           const isCurrentMonth = m.getTime() === startOfMonth.getTime();
@@ -77,10 +79,9 @@ export async function GET(request: NextRequest) {
     );
     for (const rb of pendingBills) {
       try {
-        let m = new Date(rb.startDate);
-        m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
+        let m = new Date(Date.UTC(rb.year, rb.month - 1));
         const last = rb.endDate
-          ? new Date(Math.min(new Date(rb.endDate).getTime(), endOfMonth.getTime()))
+          ? new Date(Math.min(new Date(Date.UTC(new Date(rb.endDate).getUTCFullYear(), new Date(rb.endDate).getUTCMonth(), 1)).getTime(), endOfMonth.getTime()))
           : new Date(endOfMonth);
         while (m <= last) {
           const isCurrentMonth = m.getUTCFullYear() === year && m.getUTCMonth() === month - 1;

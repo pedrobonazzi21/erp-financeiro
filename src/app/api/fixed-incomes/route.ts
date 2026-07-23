@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth(request);
     const body = await request.json();
+    const startDate = body.startDate ? new Date(body.startDate) : null;
     const [item] = await getDb().insert(fixedIncomes).values({
       id: crypto.randomUUID(),
       name: body.name,
@@ -31,20 +32,19 @@ export async function POST(request: NextRequest) {
       memberId: body.memberId,
       dueDay: body.dueDay ?? null,
       frequency: body.frequency ?? 'monthly',
-      startDate: body.startDate ? new Date(body.startDate) : null,
+      startDate: startDate,
       endDate: body.endDate ? new Date(body.endDate) : null,
       description: body.description ?? null,
       active: body.active ?? true,
     }).returning();
 
-    // Backfill income entries from startDate up to now (or just current month)
+    // Backfill income entries from startDate up to now
     if (item.active) {
       try {
         const now = new Date();
         const nowUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()));
         const today = now.getUTCDate();
-        let m = item.startDate ? new Date(item.startDate) : new Date(nowUtc);
-        m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
+        let m = startDate ? new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth())) : new Date(nowUtc);
         const last = new Date(nowUtc);
         while (m <= last) {
           const isCurrentMonth = m.getTime() === last.getTime();

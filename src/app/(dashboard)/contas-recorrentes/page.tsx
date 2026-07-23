@@ -102,7 +102,7 @@ export default function ContasRecorrentesPage() {
     setOpen(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name || !form.amount) return;
     const payload = {
       name: form.name,
@@ -117,11 +117,14 @@ export default function ContasRecorrentesPage() {
       endDate: form.endDate || null,
       suspended: false,
     };
-    if (editingId) {
-      update(editingId, payload);
-    } else {
-      create(payload);
+    try {
+      if (editingId) await update(editingId, payload);
+      else await create(payload);
+      resetForm();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao salvar");
     }
+  }
     resetForm();
   }
 

@@ -38,6 +38,8 @@ import {
   Repeat,
   Search,
   TrendingUp,
+  Zap,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -64,6 +66,8 @@ export default function ReceitasFixasPage() {
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [genResult, setGenResult] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name: "",
@@ -144,6 +148,33 @@ export default function ReceitasFixasPage() {
     }
   }
 
+  async function handleGenerateFixas() {
+    setGenerating(true);
+    setGenResult(null);
+    try {
+      const { auth } = await import("@/lib/firebase/auth");
+      const user = auth.currentUser;
+      if (!user) { setGenResult("Usuário não autenticado"); return; }
+      const token = await user.getIdToken();
+      const res = await fetch("/api/generate-entries", {
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.generated) {
+        setGenResult(`${data.generated.incomes} receitas e ${data.generated.expenses} despesas geradas`);
+        if (data.generated.incomes > 0 || data.generated.expenses > 0) {
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } else {
+        setGenResult(data.error || "Erro ao gerar");
+      }
+    } catch (e) {
+      setGenResult(e instanceof Error ? e.message : "Erro ao gerar");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   async function handleToggleActive(inc: FixedIncome) {
     try { await update(inc.id, { active: !inc.active }) } catch (e) {
       alert(e instanceof Error ? e.message : "Erro ao atualizar");
@@ -165,6 +196,17 @@ export default function ReceitasFixasPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Receitas Fixas</h1>
           <p className="text-muted-foreground">Gerencie receitas recorrentes como salário, pensão, aluguel recebido.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleGenerateFixas} disabled={generating}>
+            {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+            {generating ? "Gerando..." : "Gerar receitas"}
+          </Button>
+          {genResult && (
+            <span className={`text-xs ${genResult.includes("Erro") ? "text-red-500" : "text-green-600"}`}>
+              {genResult}
+            </span>
+          )}
         </div>
         <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o) }}>
           <DialogTrigger render={<Button onClick={() => resetForm()} />}>

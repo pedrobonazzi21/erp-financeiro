@@ -11,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     const [item] = await getDb().select().from(incomes).where(eq(incomes.id, id));
     if (!item) return notFound();
-    return ok(item);
+    return ok({ ...item, status: item.receivedDate ? "received" as const : "pending" as const });
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

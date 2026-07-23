@@ -62,15 +62,25 @@ export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    let cancelled = false;
+    const unsubscribe = () => {};
     import("@/lib/firebase/auth").then(({ auth }) => {
-      if (auth.currentUser) {
-        auth.currentUser.getIdToken().then((token) => {
-          headers["Authorization"] = `Bearer ${token}`;
-          fetch("/api/generate-entries", { headers }).catch(() => {});
-        });
-      }
-    });
+      const unsub = auth.onAuthStateChanged((user) => {
+        if (user && !cancelled) {
+          user.getIdToken().then((token) => {
+            fetch("/api/generate-entries", {
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            }).then((r) => r.json()).then((d) => {
+              if (d.generated?.incomes > 0 || d.generated?.expenses > 0) {
+                window.location.reload();
+              }
+            }).catch(() => {});
+          });
+        }
+      });
+      return unsub;
+    }).then((unsub) => { unsubscribe = unsub; });
+    return () => { cancelled = true; if (typeof unsubscribe === 'function') unsubscribe(); };
   }, []);
 
   const icons = [Utensils, Home, Car, Heart, Gamepad2, MoreHorizontal];

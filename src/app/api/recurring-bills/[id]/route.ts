@@ -25,6 +25,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await requireAuth(request);
     const { id } = await params;
     const body = await request.json();
+    const startDate = body.startDate ? new Date(body.startDate) : new Date();
     const [item] = await getDb().update(recurringBills).set({
       name: body.name,
       amount: body.amount,
@@ -35,11 +36,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       frequency: body.frequency,
       startDate: body.startDate,
       endDate: body.endDate,
-      autoAdjust: body.autoAdjust,
-      suspended: body.suspended,
-      status: body.status,
-      month: body.month,
-      year: body.year,
+      autoAdjust: body.autoGenerate ?? body.autoAdjust ?? false,
+      suspended: body.suspended ?? false,
+      status: body.status ?? "pending",
+      month: body.month ?? (startDate.getMonth() + 1),
+      year: body.year ?? startDate.getFullYear(),
       updatedAt: new Date(),
     }).where(eq(recurringBills.id, id)).returning();
     if (!item) return notFound();

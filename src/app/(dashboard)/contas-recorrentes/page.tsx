@@ -38,6 +38,8 @@ import {
   Trash2,
   Pause,
   Play,
+  Zap,
+  Loader2,
 } from "lucide-react";
 
 interface RecurringBill {
@@ -49,7 +51,7 @@ interface RecurringBill {
   memberId: string;
   dueDay: number;
   frequency: "monthly" | "weekly" | "yearly" | "bimonthly" | "quarterly";
-  status: "active" | "paused";
+  suspended: boolean;
   autoGenerate: boolean;
   startDate: string;
   endDate: string | null;
@@ -86,9 +88,11 @@ export default function ContasRecorrentesPage() {
   }, [apiMembers]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [genResult, setGenResult] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", amount: "", categoryId: apiCategories[0]?.id || "", accountId: apiAccounts[0]?.id || "", memberId: apiMembers[0]?.id || "", dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
 
-  const totalMonthly = bills.filter((b) => b.frequency === "monthly" && b.status === "active").reduce((a, b) => a + Number(b.amount), 0);
+  const totalMonthly = bills.filter((b) => b.frequency === "monthly" && !b.suspended).reduce((a, b) => a + Number(b.amount), 0);
 
   function resetForm() {
     setForm({ name: "", amount: "", categoryId: apiCategories[0]?.id || "", accountId: apiAccounts[0]?.id || "", memberId: apiMembers[0]?.id || "", dueDay: "15", frequency: "monthly", autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
@@ -104,8 +108,6 @@ export default function ContasRecorrentesPage() {
 
   function handleSave() {
     if (!form.name || !form.amount) return;
-    const nextDate = new Date(form.startDate);
-    nextDate.setDate(Number(form.dueDay));
     const payload = {
       name: form.name,
       amount: Number(form.amount),
@@ -117,6 +119,7 @@ export default function ContasRecorrentesPage() {
       autoGenerate: form.autoGenerate,
       startDate: form.startDate,
       endDate: form.endDate || null,
+      suspended: false,
     };
     if (editingId) {
       update(editingId, payload);
@@ -126,9 +129,36 @@ export default function ContasRecorrentesPage() {
     resetForm();
   }
 
+  async function handleGenerate() {
+    setGenerating(true);
+    setGenResult(null);
+    try {
+      const { auth } = await import("@/lib/firebase/auth");
+      const user = auth.currentUser;
+      if (!user) { setGenResult("Usuário não autenticado"); return; }
+      const token = await user.getIdToken();
+      const res = await fetch("/api/generate-entries", {
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.generated) {
+        setGenResult(`${data.generated.incomes} receitas e ${data.generated.expenses} despesas geradas`);
+        if (data.generated.incomes > 0 || data.generated.expenses > 0) {
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } else {
+        setGenResult(data.error || "Erro ao gerar");
+      }
+    } catch (e) {
+      setGenResult(e instanceof Error ? e.message : "Erro ao gerar");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   function toggleStatus(id: string) {
     const bill = bills.find((b) => b.id === id);
-    if (bill) update(id, { status: bill.status === "active" ? "paused" : "active" });
+    if (bill) update(id, { suspended: !bill.suspended });
   }
 
   return (
@@ -137,6 +167,17 @@ export default function ContasRecorrentesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Contas Recorrentes</h1>
           <p className="text-muted-foreground">Assinaturas e contas que se repetem automaticamente.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleGenerate} disabled={generating}>
+            {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+            {generating ? "Gerando..." : "Gerar lançamentos"}
+          </Button>
+          {genResult && (
+            <span className={`text-xs ${genResult.includes("Erro") ? "text-red-500" : "text-green-600"}`}>
+              {genResult}
+            </span>
+          )}
         </div>
         <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
           <DialogTrigger render={<Button />}>
@@ -225,13 +266,13 @@ export default function ContasRecorrentesPage() {
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Contas ativas</span>
-            <p className="mt-1 text-xl font-bold">{bills.filter((b) => b.status === "active").length}</p>
+            <p className="mt-1 text-xl font-bold">{bills.filter((b) => !b.suspended).length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Pausadas</span>
-            <p className="mt-1 text-xl font-bold text-yellow-600">{bills.filter((b) => b.status === "paused").length}</p>
+            <p className="mt-1 text-xl font-bold text-yellow-600">{bills.filter((b) => b.suspended).length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -243,7 +284,7 @@ export default function ContasRecorrentesPage() {
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Próximas a gerar</span>
-            <p className="mt-1 text-xl font-bold">{bills.filter((b) => b.status === "active").length}</p>
+            <p className="mt-1 text-xl font-bold">{bills.filter((b) => !b.suspended).length}</p>
           </CardContent>
         </Card>
       </div>
@@ -276,14 +317,14 @@ export default function ContasRecorrentesPage() {
                 <TableCell className="text-muted-foreground">{accountMap[bill.accountId] || bill.accountId}</TableCell>
                 <TableCell className="text-muted-foreground">{new Date(bill.nextGeneration).toLocaleDateString("pt-BR")}</TableCell>
                 <TableCell>
-                  <Badge variant={bill.status === "active" ? "default" : "secondary"} className="text-xs">
-                    {bill.status === "active" ? "Ativa" : "Pausada"}
+                  <Badge variant={!bill.suspended ? "default" : "secondary"} className="text-xs">
+                    {!bill.suspended ? "Ativa" : "Pausada"}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon-xs" onClick={() => toggleStatus(bill.id)}>
-                      {bill.status === "active" ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                      {!bill.suspended ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                     </Button>
                     <Button variant="ghost" size="icon-xs" onClick={() => handleEdit(bill)}><Pencil className="h-3 w-3" /></Button>
                     <Button variant="ghost" size="icon-xs" onClick={() => remove(bill.id)}>

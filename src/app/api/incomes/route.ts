@@ -9,7 +9,11 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(request);
     const all = await getDb().select().from(incomes).orderBy(incomes.createdAt);
-    return ok(all);
+    const enriched = all.map((r) => ({
+      ...r,
+      status: r.receivedDate ? "received" as const : "pending" as const,
+    }));
+    return ok(enriched);
   } catch (e) {
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

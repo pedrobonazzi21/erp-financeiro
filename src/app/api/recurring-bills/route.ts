@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth(request);
     const body = await request.json();
+    const startDate = body.startDate ? new Date(body.startDate) : new Date();
     const [item] = await getDb().insert(recurringBills).values({
       id: crypto.randomUUID(),
       name: body.name,
@@ -33,11 +34,11 @@ export async function POST(request: NextRequest) {
       frequency: body.frequency || "monthly",
       startDate: body.startDate,
       endDate: body.endDate,
-      autoAdjust: body.autoAdjust ?? false,
+      autoAdjust: body.autoGenerate ?? body.autoAdjust ?? false,
       suspended: body.suspended ?? false,
-      status: body.status || "pending",
-      month: body.month,
-      year: body.year,
+      status: "pending",
+      month: body.month ?? (startDate.getMonth() + 1),
+      year: body.year ?? startDate.getFullYear(),
     }).returning();
 
     // Backfill expense entries from startDate up to now (isolated)

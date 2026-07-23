@@ -31,41 +31,50 @@ interface Goal {
   name: string;
   target: number;
   saved: number;
-  deadline: string;
-  member: string;
+  deadline: string | null;
+  memberId: string;
 }
 
-const members = ["Carlos", "Maria", "João"];
+interface FamilyMember {
+  id: string;
+  name: string;
+}
 
 export default function ObjetivosPage() {
   const { data: goals, loading, error, create, update, remove } = useApi<Goal>('/api/goals');
+  const { data: members } = useApi<FamilyMember>('/api/family-members');
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", target: "", saved: "0", deadline: "", member: members[0] });
+  const [noDeadline, setNoDeadline] = useState(false);
+  const [form, setForm] = useState({ name: "", target: "", saved: "0", deadline: "", memberId: "" });
+
+  const memberMap = Object.fromEntries((members || []).map((m) => [m.id, m.name]));
 
   const totalSaved = goals.reduce((a, b) => a + Number(b.saved), 0);
   const totalTarget = goals.reduce((a, b) => a + Number(b.target), 0);
 
   function resetForm() {
-    setForm({ name: "", target: "", saved: "0", deadline: "", member: members[0] });
+    setForm({ name: "", target: "", saved: "0", deadline: "", memberId: members?.[0]?.id || "" });
+    setNoDeadline(false);
     setEditingId(null);
     setOpen(false);
   }
 
   function handleEdit(goal: Goal) {
     setEditingId(goal.id);
-    setForm({ name: goal.name, target: String(goal.target), saved: String(goal.saved), deadline: goal.deadline, member: goal.member });
+    setForm({ name: goal.name, target: String(goal.target), saved: String(goal.saved), deadline: goal.deadline || "", memberId: goal.memberId });
+    setNoDeadline(!goal.deadline);
     setOpen(true);
   }
 
   function handleSave() {
-    if (!form.name || !form.target) return;
+    if (!form.name || !form.target || !form.memberId) return;
     const payload = {
       name: form.name,
       target: Number(form.target),
       saved: Number(form.saved) || 0,
-      deadline: form.deadline,
-      memberId: form.member,
+      deadline: noDeadline ? null : form.deadline || null,
+      memberId: form.memberId,
     };
     if (editingId) update(editingId, payload);
     else create(payload);
@@ -102,14 +111,26 @@ export default function ObjetivosPage() {
               </div>
               <div className="space-y-2">
                 <Label>Prazo</Label>
-                <Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="no-deadline"
+                    checked={noDeadline}
+                    onChange={(e) => setNoDeadline(e.target.checked)}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <Label htmlFor="no-deadline" className="text-sm font-normal">Sem prazo definido</Label>
+                </div>
+                {!noDeadline && (
+                  <Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Responsável</Label>
-                <Select value={form.member} onValueChange={(v) => v && setForm({ ...form, member: v })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <Select value={form.memberId} onValueChange={(v) => v && setForm({ ...form, memberId: v })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    {members.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {(members || []).map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -153,8 +174,8 @@ export default function ObjetivosPage() {
           const remaining = goal.target - goal.saved;
           const monthsLeft = goal.deadline
             ? Math.max(1, Math.round((new Date(goal.deadline).getTime() - Date.now()) / (30 * 86400000)))
-            : 0;
-          const monthlyRecommend = monthsLeft > 0 ? remaining / monthsLeft : 0;
+            : null;
+          const monthlyRecommend = monthsLeft ? remaining / monthsLeft : 0;
           return (
             <Card key={goal.id}>
               <CardContent className="p-4">
@@ -165,7 +186,9 @@ export default function ObjetivosPage() {
                     </div>
                     <div>
                       <p className="font-medium">{goal.name}</p>
-                      <p className="text-xs text-muted-foreground">Responsável: {goal.member}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {memberMap[goal.memberId] || goal.memberId}
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-1">
@@ -186,11 +209,11 @@ export default function ObjetivosPage() {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                   <Badge variant="outline" className="text-xs">{pct}% concluído</Badge>
-                  {goal.deadline && (
-                    <span>
-                      {monthsLeft} meses • R$ {monthlyRecommend.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês
-                    </span>
-                  )}
+                  <span>
+                    {goal.deadline
+                      ? `${monthsLeft} meses • R$ ${monthlyRecommend.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}/mês`
+                      : "Sem prazo definido"}
+                  </span>
                 </div>
               </CardContent>
             </Card>

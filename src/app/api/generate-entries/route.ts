@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
               memberId: fi.memberId,
               description: fi.name,
               recurring: true,
+              sourceType: "fixed_income",
+              sourceId: fi.id,
             }).returning();
             await addBalance(newIncome.accountId, newIncome.amount);
             generated.incomes++;
@@ -96,6 +98,8 @@ export async function GET(request: NextRequest) {
               memberId: rb.memberId,
               description: rb.name,
               recurring: true,
+              sourceType: "recurring_bill",
+              sourceId: rb.id,
             }).returning();
             if (newExpense.accountId) await subtractBalance(newExpense.accountId, newExpense.amount);
             if (newExpense.creditCardId) await addCreditUsed(newExpense.creditCardId, newExpense.amount);

@@ -76,6 +76,8 @@ export async function POST(request: NextRequest) {
                 memberId: item.memberId,
                 description: item.name,
                 recurring: true,
+                sourceType: "recurring_bill",
+                sourceId: item.id,
               }).returning();
               if (newExpense.accountId) await subtractBalance(newExpense.accountId, newExpense.amount);
               if (newExpense.creditCardId) await addCreditUsed(newExpense.creditCardId, newExpense.amount);

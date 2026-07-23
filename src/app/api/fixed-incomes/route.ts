@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
       memberId: body.memberId,
       dueDay: body.dueDay ?? null,
       frequency: body.frequency ?? 'monthly',
-      startDate: body.startDate ?? null,
-      endDate: body.endDate ?? null,
+      startDate: body.startDate ? new Date(body.startDate) : null,
+      endDate: body.endDate ? new Date(body.endDate) : null,
       description: body.description ?? null,
       active: body.active ?? true,
     }).returning();

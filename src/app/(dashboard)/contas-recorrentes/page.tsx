@@ -38,8 +38,6 @@ import {
   Trash2,
   Pause,
   Play,
-  Zap,
-  Loader2,
 } from "lucide-react";
 
 interface RecurringBill {
@@ -88,8 +86,6 @@ export default function ContasRecorrentesPage() {
   }, [apiMembers]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [genResult, setGenResult] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", amount: "", categoryId: apiCategories[0]?.id || "", accountId: apiAccounts[0]?.id || "", memberId: apiMembers[0]?.id || "", dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
 
   const totalMonthly = bills.filter((b) => b.frequency === "monthly" && !b.suspended).reduce((a, b) => a + Number(b.amount), 0);
@@ -129,33 +125,6 @@ export default function ContasRecorrentesPage() {
     resetForm();
   }
 
-  async function handleGenerate() {
-    setGenerating(true);
-    setGenResult(null);
-    try {
-      const { auth } = await import("@/lib/firebase/auth");
-      const user = auth.currentUser;
-      if (!user) { setGenResult("Usuário não autenticado"); return; }
-      const token = await user.getIdToken();
-      const res = await fetch("/api/generate-entries", {
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.generated) {
-        setGenResult(`${data.generated.incomes} receitas e ${data.generated.expenses} despesas geradas`);
-        if (data.generated.incomes > 0 || data.generated.expenses > 0) {
-          setTimeout(() => window.location.reload(), 1500);
-        }
-      } else {
-        setGenResult(data.error || "Erro ao gerar");
-      }
-    } catch (e) {
-      setGenResult(e instanceof Error ? e.message : "Erro ao gerar");
-    } finally {
-      setGenerating(false);
-    }
-  }
-
   function toggleStatus(id: string) {
     const bill = bills.find((b) => b.id === id);
     if (bill) update(id, { suspended: !bill.suspended });
@@ -167,17 +136,6 @@ export default function ContasRecorrentesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Contas Recorrentes</h1>
           <p className="text-muted-foreground">Assinaturas e contas que se repetem automaticamente.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleGenerate} disabled={generating}>
-            {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-            {generating ? "Gerando..." : "Gerar lançamentos"}
-          </Button>
-          {genResult && (
-            <span className={`text-xs ${genResult.includes("Erro") ? "text-red-500" : "text-green-600"}`}>
-              {genResult}
-            </span>
-          )}
         </div>
         <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); setOpen(o); }}>
           <DialogTrigger render={<Button />}>
@@ -315,7 +273,9 @@ export default function ContasRecorrentesPage() {
                 <TableCell>Dia {bill.dueDay}</TableCell>
                 <TableCell className="text-muted-foreground text-xs">{frequencies.find((f) => f.value === bill.frequency)?.label}</TableCell>
                 <TableCell className="text-muted-foreground">{accountMap[bill.accountId] || bill.accountId}</TableCell>
-                <TableCell className="text-muted-foreground">{new Date(bill.nextGeneration).toLocaleDateString("pt-BR")}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {bill.startDate ? new Date(bill.startDate).toLocaleDateString("pt-BR") : "-"}
+                </TableCell>
                 <TableCell>
                   <Badge variant={!bill.suspended ? "default" : "secondary"} className="text-xs">
                     {!bill.suspended ? "Ativa" : "Pausada"}

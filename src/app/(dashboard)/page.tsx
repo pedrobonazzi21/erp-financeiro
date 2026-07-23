@@ -65,20 +65,16 @@ export default function DashboardPage() {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
     import("@/lib/firebase/auth").then(({ auth }) => {
-      const unsub = auth.onAuthStateChanged((user) => {
+      if (cancelled) return;
+      unsubscribe = auth.onAuthStateChanged((user) => {
         if (user && !cancelled) {
           user.getIdToken().then((token) => {
             fetch("/api/generate-entries", {
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            }).then((r) => r.json()).then((d) => {
-              if (d.generated?.incomes > 0 || d.generated?.expenses > 0) {
-                window.location.reload();
-              }
             }).catch(() => {});
           });
         }
       });
-      unsubscribe = unsub;
     });
     return () => { cancelled = true; if (unsubscribe) unsubscribe(); };
   }, []);

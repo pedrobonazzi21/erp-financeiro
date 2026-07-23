@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       accountId: body.accountId,
       memberId: body.memberId,
       frequency: body.frequency || "monthly",
-      startDate: body.startDate,
-      endDate: body.endDate,
+      startDate: startDate,
+      endDate: body.endDate ? new Date(body.endDate) : null,
       autoAdjust: body.autoGenerate ?? body.autoAdjust ?? false,
       suspended: body.suspended ?? false,
       status: "pending",
@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
     if (e instanceof Error && e.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return serverError(e);
+    console.error('Recurring bills POST error:', e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Internal server error" }, { status: 500 });
   }
 }

@@ -4,7 +4,7 @@ import { bankAccounts } from './bank-accounts'
 import { categories } from './categories'
 
 export const billStatusEnum = pgEnum('bill_status', ['paid', 'pending'])
-export const billFrequencyEnum = pgEnum('bill_frequency', ['weekly', 'monthly', 'bimonthly', 'quarterly', 'yearly'])
+export const billFrequencyEnum = pgEnum('bill_frequency', ['daily', 'weekly', 'monthly', 'bimonthly', 'quarterly', 'yearly'])
 
 export const recurringBills = pgTable('recurring_bill', {
   id: text('id').primaryKey(),

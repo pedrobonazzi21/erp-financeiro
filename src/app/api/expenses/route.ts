@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       if (item.creditCardId) {
         await tx.update(creditCards).set({
           used: sql`${creditCards.used} + ${Number(item.amount)}`,
+          available: sql`${creditCards.available} - ${Number(item.amount)}`,
         }).where(eq(creditCards.id, item.creditCardId));
       }
       return item;

@@ -24,7 +24,7 @@ import {
 import { Building2, CreditCard, Loader2 } from "lucide-react"
 
 interface Category { id: string; name: string }
-interface BankAccount { id: string; bank: string }
+interface BankAccount { id: string; bank: string; balance: number }
 interface CreditCard { id: string; name: string }
 interface PaymentMethod { id: string; name: string }
 interface FamilyMember { id: string; name: string }
@@ -164,12 +164,22 @@ export function ExpenseForm({ editingId, categories, accounts, creditCards, paym
             </div>
             {paymentType === "account" ? (
               <Controller name="accountId" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-1">
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {field.value && (() => {
+                    const acc = accounts.find((a) => a.id === field.value)
+                    return acc ? (
+                      <p className={`text-xs ${Number(acc.balance) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        Saldo: R$ {Number(acc.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                    ) : null
+                  })()}
+                </div>
               )} />
             ) : (
               <Controller name="creditCardId" control={control} render={({ field }) => (

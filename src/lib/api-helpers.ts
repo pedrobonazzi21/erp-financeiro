@@ -60,6 +60,7 @@ export async function addCreditUsed(cardId: string | null | undefined, amount: s
   if (!cardId) return
   await getDb().update(creditCards).set({
     used: sql`${creditCards.used} + ${Number(amount)}`,
+    available: sql`${creditCards.available} - ${Number(amount)}`,
   }).where(eq(creditCards.id, cardId))
 }
 
@@ -67,5 +68,6 @@ export async function subtractCreditUsed(cardId: string | null | undefined, amou
   if (!cardId) return
   await getDb().update(creditCards).set({
     used: sql`${creditCards.used} - ${Number(amount)}`,
+    available: sql`${creditCards.available} + ${Number(amount)}`,
   }).where(eq(creditCards.id, cardId))
 }

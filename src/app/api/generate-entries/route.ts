@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { fixedIncomes, recurringBills, incomes, expenses } from "@/lib/db/schema";
+import { fixedIncomes, recurringBills, incomes, expenses, creditCards, bankAccounts, invoices } from "@/lib/db/schema";
 import { requireAuth, ok, serverError, addBalance, subtractBalance, addCreditUsed } from "@/lib/api-helpers";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -12,12 +12,13 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
+    const currentDay = now.getDate();
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59);
 
-    const generated = { incomes: 0, expenses: 0 };
+    const generated = { incomes: 0, expenses: 0, invoicesPaid: 0 };
 
-    // Fixed incomes → Income entries (backfill all from startDate, or just current month)
+    // ── Fixed incomes → Income entries ──
     const activeFixedIncomes = await getDb().select().from(fixedIncomes).where(eq(fixedIncomes.active, true));
     for (const fi of activeFixedIncomes) {
       try {
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Recurring bills → Expense entries (backfill all from startDate)
+    // ── Recurring bills → Expense entries ──
     const pendingBills = await getDb().select().from(recurringBills).where(
       and(eq(recurringBills.status, "pending"), eq(recurringBills.suspended, false))
     );
@@ -74,6 +75,14 @@ export async function GET(request: NextRequest) {
           ? new Date(Math.min(new Date(rb.endDate).getTime(), endOfMonth.getTime()))
           : new Date(endOfMonth);
         while (m <= last) {
+          const isCurrentMonth = m.getFullYear() === year && m.getMonth() === month - 1;
+
+          // Skip current month if dueDay hasn't arrived yet
+          if (isCurrentMonth && rb.dueDay > currentDay) {
+            m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+            continue;
+          }
+
           const compDate = new Date(m);
           const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
           const [existing] = await getDb()
@@ -109,6 +118,77 @@ export async function GET(request: NextRequest) {
         }
       } catch (_) {
         console.error('Failed to generate expense for recurring bill:', rb.id, _);
+      }
+    }
+
+    // ── Credit card closing: auto-pay invoices when closing day arrives ──
+    const allCards = await getDb().select().from(creditCards);
+    for (const card of allCards) {
+      try {
+        if (card.closingDay > currentDay) continue;
+        if (!card.bankAccountId) continue;
+        const used = Number(card.used);
+        if (used <= 0) continue;
+
+        // Check if already paid this month
+        const [existingInvoice] = await getDb()
+          .select()
+          .from(invoices)
+          .where(and(
+            eq(invoices.creditCardId, card.id),
+            eq(invoices.month, month),
+            eq(invoices.year, year),
+            eq(invoices.status, "paid"),
+          ))
+          .limit(1);
+
+        if (existingInvoice) continue;
+
+        // Deduct used amount from linked bank account
+        await subtractBalance(card.bankAccountId, used);
+
+        // Reset credit card
+        await getDb().update(creditCards).set({
+          used: "0",
+          available: sql`${creditCards.limit}`,
+        }).where(eq(creditCards.id, card.id));
+
+        // Create/update invoice as paid
+        const [existingOpen] = await getDb()
+          .select()
+          .from(invoices)
+          .where(and(
+            eq(invoices.creditCardId, card.id),
+            eq(invoices.month, month),
+            eq(invoices.year, year),
+          ))
+          .limit(1);
+
+        if (existingOpen) {
+          await getDb().update(invoices).set({
+            amount: String(used),
+            paidAmount: String(used),
+            status: "paid",
+            paidAt: now,
+          }).where(eq(invoices.id, existingOpen.id));
+        } else {
+          await getDb().insert(invoices).values({
+            id: crypto.randomUUID(),
+            creditCardId: card.id,
+            month,
+            year,
+            amount: String(used),
+            paidAmount: String(used),
+            status: "paid",
+            dueDate: new Date(year, month - 1, card.dueDay),
+            closingDate: new Date(year, month - 1, card.closingDay),
+            paidAt: now,
+          });
+        }
+
+        generated.invoicesPaid++;
+      } catch (_) {
+        console.error('Failed to auto-pay credit card invoice:', card.id, _);
       }
     }
 

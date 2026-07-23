@@ -59,7 +59,7 @@ interface Expense {
   sourceId: string
 }
 interface Category { id: string; name: string }
-interface BankAccount { id: string; bank: string }
+interface BankAccount { id: string; bank: string; balance: number }
 interface CreditCard { id: string; name: string }
 interface PaymentMethod { id: string; name: string }
 interface FamilyMember { id: string; name: string }
@@ -110,7 +110,7 @@ export default function DespesasPage() {
   }, [members])
 
   const filtered = useMemo(() => {
-    let data = [...expenses]
+    let data = [...expenses].filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey))
     if (search) {
       const q = search.toLowerCase()
       data = data.filter((e) => {
@@ -125,7 +125,7 @@ export default function DespesasPage() {
       return mul * (new Date(a.paidDate || a.competenceDate).getTime() - new Date(b.paidDate || b.competenceDate).getTime())
     })
     return data
-  }, [expenses, search, statusFilter, sortField, sortDir, categoryMap])
+  }, [expenses, search, statusFilter, sortField, sortDir, categoryMap, monthKey])
 
   const totalThisMonth = useMemo(
     () => expenses
@@ -133,8 +133,8 @@ export default function DespesasPage() {
       .reduce((a, b) => a + Number(b.amount), 0),
     [expenses, monthKey]
   )
-  const totalPaid = expenses.filter((e) => e.status === "paid").reduce((a, b) => a + Number(b.amount), 0)
-  const totalPending = expenses.filter((e) => e.status === "pending" || e.status === "overdue").reduce((a, b) => a + Number(b.amount), 0)
+  const totalPaid = expenses.filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey) && e.status === "paid").reduce((a, b) => a + Number(b.amount), 0)
+  const totalPending = expenses.filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey) && (e.status === "pending" || e.status === "overdue")).reduce((a, b) => a + Number(b.amount), 0)
 
   function toggleSort(field: "paidDate" | "amount") {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -221,7 +221,7 @@ export default function DespesasPage() {
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Lançamentos</span>
-            <p className="mt-1 text-xl font-bold">{expenses.length}</p>
+            <p className="mt-1 text-xl font-bold">{filtered.length}</p>
           </CardContent>
         </Card>
       </div>

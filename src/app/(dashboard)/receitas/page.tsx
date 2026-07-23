@@ -95,7 +95,7 @@ export default function ReceitasPage() {
   }, [members])
 
   const filtered = useMemo(() => {
-    let data = [...incomes]
+    let data = [...incomes].filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey))
     if (search) {
       const q = search.toLowerCase()
       data = data.filter((i) => {
@@ -110,10 +110,10 @@ export default function ReceitasPage() {
       return mul * (new Date(a.receivedDate || a.competenceDate).getTime() - new Date(b.receivedDate || b.competenceDate).getTime())
     })
     return data
-  }, [incomes, search, statusFilter, sortField, sortDir, categoryMap])
+  }, [incomes, search, statusFilter, sortField, sortDir, categoryMap, monthKey])
 
-  const totalReceived = incomes.filter((i) => i.status === "received").reduce((a, b) => a + Number(b.amount), 0)
-  const totalPending = incomes.filter((i) => i.status === "pending").reduce((a, b) => a + Number(b.amount), 0)
+  const totalReceived = incomes.filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey) && i.status === "received").reduce((a, b) => a + Number(b.amount), 0)
+  const totalPending = incomes.filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey) && i.status === "pending").reduce((a, b) => a + Number(b.amount), 0)
   const totalThisMonth = useMemo(
     () => incomes
       .filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey))
@@ -210,7 +210,7 @@ export default function ReceitasPage() {
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Lançamentos</span>
-            <p className="mt-1 text-xl font-bold">{incomes.length}</p>
+            <p className="mt-1 text-xl font-bold">{filtered.length}</p>
           </CardContent>
         </Card>
       </div>

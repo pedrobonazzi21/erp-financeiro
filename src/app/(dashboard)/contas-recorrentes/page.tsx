@@ -48,7 +48,7 @@ interface RecurringBill {
   accountId: string;
   memberId: string;
   dueDay: number;
-  frequency: "monthly" | "weekly" | "yearly" | "bimonthly" | "quarterly";
+  frequency: "daily" | "weekly" | "monthly" | "bimonthly" | "quarterly" | "yearly";
   suspended: boolean;
   autoGenerate: boolean;
   startDate: string;
@@ -57,17 +57,41 @@ interface RecurringBill {
 }
 
 const frequencies = [
-  { value: "monthly", label: "Mensal" },
+  { value: "daily", label: "Diária" },
   { value: "weekly", label: "Semanal" },
+  { value: "monthly", label: "Mensal" },
   { value: "bimonthly", label: "Bimestral" },
   { value: "quarterly", label: "Trimestral" },
   { value: "yearly", label: "Anual" },
 ];
 
+const frequencyOrder = ["daily", "weekly", "monthly", "bimonthly", "quarterly", "yearly"] as const;
+type FreqGroup = typeof frequencyOrder[number];
+
+function monthlyProjection(amount: number, frequency: FreqGroup): number {
+  switch (frequency) {
+    case "daily": return amount * 365 / 12;
+    case "weekly": return amount * 52 / 12;
+    case "monthly": return amount;
+    case "bimonthly": return amount / 2;
+    case "quarterly": return amount / 3;
+    case "yearly": return amount / 12;
+  }
+}
+
+const frequencyLabels: Record<FreqGroup, string> = {
+  daily: "Diárias",
+  weekly: "Semanais",
+  monthly: "Mensais",
+  bimonthly: "Bimestrais",
+  quarterly: "Trimestrais",
+  yearly: "Anuais",
+};
+
 export default function ContasRecorrentesPage() {
   const { data: bills, loading, error, create, update, remove } = useApi<RecurringBill>('/api/recurring-bills');
   const { data: apiCategories } = useApi<{ id: string; name: string }>('/api/categories');
-  const { data: apiAccounts } = useApi<{ id: string; bank: string }>('/api/bank-accounts');
+  const { data: apiAccounts } = useApi<{ id: string; bank: string; balance?: number }>('/api/bank-accounts');
   const { data: apiMembers } = useApi<{ id: string; name: string }>('/api/family-members');
   const categoryMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -88,7 +112,27 @@ export default function ContasRecorrentesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", amount: "", categoryId: apiCategories[0]?.id || "", accountId: apiAccounts[0]?.id || "", memberId: apiMembers[0]?.id || "", dueDay: "15", frequency: "monthly" as RecurringBill["frequency"], autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
 
-  const totalMonthly = bills.filter((b) => b.frequency === "monthly" && !b.suspended).reduce((a, b) => a + Number(b.amount), 0);
+  const today = new Date();
+  const currentDay = today.getDate();
+
+  const totalProjected = useMemo(() =>
+    bills.filter((b) => !b.suspended)
+      .reduce((a, b) => a + monthlyProjection(Number(b.amount), b.frequency), 0),
+  [bills]);
+
+  const activeBills = useMemo(() => bills.filter((b) => !b.suspended), [bills]);
+  const pausadasBills = useMemo(() => bills.filter((b) => b.suspended), [bills]);
+
+  const groupedBills = useMemo(() => {
+    const groups: Record<FreqGroup, RecurringBill[]> = {
+      daily: [], weekly: [], monthly: [], bimonthly: [], quarterly: [], yearly: [],
+    };
+    bills.forEach((b) => {
+      const g = groups[b.frequency];
+      if (g) g.push(b);
+    });
+    return groups;
+  }, [bills]);
 
   function resetForm() {
     setForm({ name: "", amount: "", categoryId: apiCategories[0]?.id || "", accountId: apiAccounts[0]?.id || "", memberId: apiMembers[0]?.id || "", dueDay: "15", frequency: "monthly", autoGenerate: true, startDate: new Date().toISOString().split("T")[0], endDate: "" });
@@ -129,6 +173,66 @@ export default function ContasRecorrentesPage() {
   function toggleStatus(id: string) {
     const bill = bills.find((b) => b.id === id);
     if (bill) update(id, { suspended: !bill.suspended });
+  }
+
+  function renderBillTable(bills: RecurringBill[]) {
+    if (bills.length === 0) return null;
+    return (
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Categoria</TableHead>
+              <TableHead>Valor</TableHead>
+              <TableHead>C. Mensal</TableHead>
+              <TableHead>Vencimento</TableHead>
+              <TableHead>Frequência</TableHead>
+              <TableHead>Conta</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-[80px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {bills.map((bill) => {
+              const proj = monthlyProjection(Number(bill.amount), bill.frequency);
+              const isPending = bill.dueDay > currentDay && !bill.suspended;
+              return (
+                <TableRow key={bill.id}>
+                  <TableCell className="font-medium">{bill.name}</TableCell>
+                  <TableCell><Badge variant="outline">{categoryMap[bill.categoryId] || bill.categoryId}</Badge></TableCell>
+                  <TableCell className="tabular-nums">R$ {Number(bill.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">
+                    R$ {proj.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell>Dia {bill.dueDay}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{frequencies.find((f) => f.value === bill.frequency)?.label}</TableCell>
+                  <TableCell className="text-muted-foreground">{accountMap[bill.accountId] || bill.accountId}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Badge variant={!bill.suspended ? (isPending ? "secondary" : "default") : "secondary"} className="text-xs">
+                        {bill.suspended ? "Pausada" : isPending ? "⏳ Pendente" : "Ativa"}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon-xs" onClick={() => toggleStatus(bill.id)}>
+                        {!bill.suspended ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                      </Button>
+                      <Button variant="ghost" size="icon-xs" onClick={() => handleEdit(bill)}><Pencil className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon-xs" onClick={() => remove(bill.id)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
   }
 
   return (
@@ -225,79 +329,50 @@ export default function ContasRecorrentesPage() {
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Contas ativas</span>
-            <p className="mt-1 text-xl font-bold">{bills.filter((b) => !b.suspended).length}</p>
+            <p className="mt-1 text-xl font-bold">{activeBills.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Pausadas</span>
-            <p className="mt-1 text-xl font-bold text-yellow-600">{bills.filter((b) => b.suspended).length}</p>
+            <p className="mt-1 text-xl font-bold text-yellow-600">{pausadasBills.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <span className="text-sm text-muted-foreground">Total mensal</span>
-            <p className="mt-1 text-xl font-bold">R$ {totalMonthly.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+            <span className="text-sm text-muted-foreground">Total mensal projetado</span>
+            <p className="mt-1 text-xl font-bold">R$ {totalProjected.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <span className="text-sm text-muted-foreground">Próximas a gerar</span>
-            <p className="mt-1 text-xl font-bold">{bills.filter((b) => !b.suspended).length}</p>
+            <p className="mt-1 text-xl font-bold">{activeBills.filter((b) => b.dueDay <= currentDay).length}</p>
           </CardContent>
         </Card>
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
       {error && <p className="text-sm text-red-500">{error}</p>}
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Valor</TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Frequência</TableHead>
-              <TableHead>Conta</TableHead>
-              <TableHead>Próxima geração</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[80px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {bills.map((bill) => (
-              <TableRow key={bill.id}>
-                <TableCell className="font-medium">{bill.name}</TableCell>
-                <TableCell><Badge variant="outline">{categoryMap[bill.categoryId] || bill.categoryId}</Badge></TableCell>
-                <TableCell className="tabular-nums">R$ {bill.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell>Dia {bill.dueDay}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{frequencies.find((f) => f.value === bill.frequency)?.label}</TableCell>
-                <TableCell className="text-muted-foreground">{accountMap[bill.accountId] || bill.accountId}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {bill.startDate ? new Date(bill.startDate).toLocaleDateString("pt-BR") : "-"}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={!bill.suspended ? "default" : "secondary"} className="text-xs">
-                    {!bill.suspended ? "Ativa" : "Pausada"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon-xs" onClick={() => toggleStatus(bill.id)}>
-                      {!bill.suspended ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                    </Button>
-                    <Button variant="ghost" size="icon-xs" onClick={() => handleEdit(bill)}><Pencil className="h-3 w-3" /></Button>
-                    <Button variant="ghost" size="icon-xs" onClick={() => remove(bill.id)}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+
+      {frequencyOrder.map((freq) => {
+        const group = groupedBills[freq];
+        if (group.length === 0) return null;
+        const active = group.filter((b) => !b.suspended);
+        const pausadas = group.filter((b) => b.suspended);
+        return (
+          <div key={freq} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">{frequencyLabels[freq]}</h2>
+              <span className="text-xs text-muted-foreground">
+                {active.length} ativa{active.length !== 1 ? "s" : ""}
+                {pausadas.length > 0 && ` · ${pausadas.length} pausada${pausadas.length !== 1 ? "s" : ""}`}
+              </span>
+            </div>
+            {renderBillTable(group)}
+          </div>
+        );
+      })}
     </div>
   );
 }

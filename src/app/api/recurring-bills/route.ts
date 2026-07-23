@@ -56,10 +56,8 @@ export async function POST(request: NextRequest) {
               .select({ count: sql<number>`count(*)::int` })
               .from(expenses)
               .where(and(
-                eq(expenses.description, item.name),
-                eq(expenses.accountId, item.accountId),
-                eq(expenses.categoryId, item.categoryId),
-                eq(expenses.recurring, true),
+                eq(expenses.sourceType, "recurring_bill"),
+                eq(expenses.sourceId, item.id),
                 sql`${expenses.competenceDate} >= ${compDate}`,
                 sql`${expenses.competenceDate} < ${nextMonth}`,
               ));

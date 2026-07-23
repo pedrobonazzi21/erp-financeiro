@@ -41,10 +41,8 @@ export async function GET(request: NextRequest) {
             .select({ count: sql<number>`count(*)::int` })
             .from(incomes)
             .where(and(
-              eq(incomes.description, fi.name),
-              eq(incomes.accountId, fi.accountId),
-              eq(incomes.categoryId, fi.categoryId),
-              eq(incomes.recurring, true),
+              eq(incomes.sourceType, "fixed_income"),
+              eq(incomes.sourceId, fi.id),
               sql`${incomes.competenceDate} >= ${compDate}`,
               sql`${incomes.competenceDate} < ${nextMonth}`,
             ));
@@ -99,10 +97,8 @@ export async function GET(request: NextRequest) {
             .select({ count: sql<number>`count(*)::int` })
             .from(expenses)
             .where(and(
-              eq(expenses.description, rb.name),
-              eq(expenses.accountId, rb.accountId),
-              eq(expenses.categoryId, rb.categoryId),
-              eq(expenses.recurring, true),
+              eq(expenses.sourceType, "recurring_bill"),
+              eq(expenses.sourceId, rb.id),
               sql`${expenses.competenceDate} >= ${compDate}`,
               sql`${expenses.competenceDate} < ${nextMonth}`,
             ));

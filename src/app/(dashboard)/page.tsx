@@ -63,7 +63,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const unsubscribe = () => {};
+    let unsubscribe: (() => void) | undefined;
     import("@/lib/firebase/auth").then(({ auth }) => {
       const unsub = auth.onAuthStateChanged((user) => {
         if (user && !cancelled) {
@@ -78,9 +78,9 @@ export default function DashboardPage() {
           });
         }
       });
-      return unsub;
-    }).then((unsub) => { unsubscribe = unsub; });
-    return () => { cancelled = true; if (typeof unsubscribe === 'function') unsubscribe(); };
+      unsubscribe = unsub;
+    });
+    return () => { cancelled = true; if (unsubscribe) unsubscribe(); };
   }, []);
 
   const icons = [Utensils, Home, Car, Heart, Gamepad2, MoreHorizontal];

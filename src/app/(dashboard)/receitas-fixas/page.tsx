@@ -49,6 +49,10 @@ interface FixedIncome {
   accountId: string
   memberId: string
   active: boolean
+  dueDay: number | null
+  startDate: string | null
+  endDate: string | null
+  description: string | null
 }
 
 interface Category { id: string; name: string; type: "income" | "expense" }
@@ -71,6 +75,10 @@ export default function ReceitasFixasPage() {
     categoryId: "",
     accountId: "",
     memberId: "",
+    dueDay: "",
+    startDate: "",
+    endDate: "",
+    description: "",
   })
 
   const categoryMap = useMemo(() => {
@@ -108,6 +116,10 @@ export default function ReceitasFixasPage() {
       categoryId: categories?.find((c) => c.type === "income")?.id || categories?.[0]?.id || "",
       accountId: accounts?.[0]?.id || "",
       memberId: members?.[0]?.id || "",
+      dueDay: "",
+      startDate: "",
+      endDate: "",
+      description: "",
     })
     setEditingId(null)
     setOpen(false)
@@ -121,6 +133,10 @@ export default function ReceitasFixasPage() {
       categoryId: inc.categoryId,
       accountId: inc.accountId,
       memberId: inc.memberId,
+      dueDay: inc.dueDay ? String(inc.dueDay) : "",
+      startDate: inc.startDate ? new Date(inc.startDate).toISOString().split("T")[0] : "",
+      endDate: inc.endDate ? new Date(inc.endDate).toISOString().split("T")[0] : "",
+      description: inc.description || "",
     })
     setOpen(true)
   }
@@ -133,6 +149,10 @@ export default function ReceitasFixasPage() {
       categoryId: form.categoryId,
       accountId: form.accountId,
       memberId: form.memberId,
+      dueDay: form.dueDay ? Number(form.dueDay) : null,
+      startDate: form.startDate || null,
+      endDate: form.endDate || null,
+      description: form.description || null,
       active: true,
     }
     try {
@@ -180,6 +200,10 @@ export default function ReceitasFixasPage() {
                 <Label>Nome</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Salário" />
               </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Descrição (opcional)</Label>
+                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: Salário mensal empresa XYZ" />
+              </div>
               <div className="space-y-2">
                 <Label>Categoria</Label>
                 <Select value={form.categoryId} onValueChange={(v) => v && setForm({ ...form, categoryId: v })}>
@@ -196,6 +220,17 @@ export default function ReceitasFixasPage() {
                 <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0,00" />
               </div>
               <div className="space-y-2">
+                <Label>Dia recebimento</Label>
+                <Select value={form.dueDay} onValueChange={(v) => v && setForm({ ...form, dueDay: v })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Todo dia 1" /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{d}º</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Conta</Label>
                 <Select value={form.accountId} onValueChange={(v) => v && setForm({ ...form, accountId: v })}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
@@ -203,6 +238,14 @@ export default function ReceitasFixasPage() {
                     {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.bank}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Data inicial</Label>
+                <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Data final (opcional)</Label>
+                <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Responsável</Label>
@@ -267,7 +310,9 @@ export default function ReceitasFixasPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
+              <TableHead>Descrição</TableHead>
               <TableHead>Categoria</TableHead>
+              <TableHead>Dia</TableHead>
               <TableHead>Conta</TableHead>
               <TableHead>Responsável</TableHead>
               <TableHead className="text-right">Valor</TableHead>
@@ -278,7 +323,7 @@ export default function ReceitasFixasPage() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nenhuma receita fixa encontrada.</TableCell>
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhuma receita fixa encontrada.</TableCell>
               </TableRow>
             ) : (
               filtered.map((inc) => (
@@ -289,7 +334,9 @@ export default function ReceitasFixasPage() {
                       {inc.name}
                     </span>
                   </TableCell>
+                  <TableCell className="text-muted-foreground max-w-[150px] truncate">{inc.description || "-"}</TableCell>
                   <TableCell><Badge variant="outline">{categoryMap[inc.categoryId] || inc.categoryId}</Badge></TableCell>
+                  <TableCell>{inc.dueDay ? `${inc.dueDay}º` : "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{accountMap[inc.accountId] || inc.accountId}</TableCell>
                   <TableCell className="text-muted-foreground">{memberMap[inc.memberId] || inc.memberId}</TableCell>
                   <TableCell className={cn("text-right font-medium tabular-nums text-green-600")}>

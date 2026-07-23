@@ -26,7 +26,16 @@ export async function GET(request: NextRequest) {
         m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
         const last = new Date(endOfMonth);
         while (m <= last) {
-          const compDate = new Date(m);
+          const isCurrentMonth = m.getTime() === startOfMonth.getTime();
+          const dueDay = fi.dueDay || 1;
+
+          if (isCurrentMonth && dueDay > currentDay) {
+            m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
+            continue;
+          }
+
+          const compDay = Math.min(dueDay, new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 0)).getUTCDate());
+          const compDate = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), compDay));
           const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
           const [existing] = await getDb()
             .select({ count: sql<number>`count(*)::int` })
@@ -46,6 +55,7 @@ export async function GET(request: NextRequest) {
               categoryId: fi.categoryId,
               amount: fi.amount,
               competenceDate: compDate,
+              receivedDate: compDate,
               accountId: fi.accountId,
               memberId: fi.memberId,
               description: fi.name,

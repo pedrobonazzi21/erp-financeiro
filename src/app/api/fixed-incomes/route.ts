@@ -42,11 +42,22 @@ export async function POST(request: NextRequest) {
       try {
         const now = new Date();
         const nowUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()));
+        const today = now.getUTCDate();
         let m = item.startDate ? new Date(item.startDate) : new Date(nowUtc);
         m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
         const last = new Date(nowUtc);
         while (m <= last) {
-          const compDate = new Date(m);
+          const isCurrentMonth = m.getTime() === last.getTime();
+          const dueDay = item.dueDay || 1;
+
+          // Skip current month if dueDay hasn't arrived yet
+          if (isCurrentMonth && dueDay > today) {
+            m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
+            continue;
+          }
+
+          const compDay = Math.min(dueDay, new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 0)).getUTCDate());
+          const compDate = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), compDay));
           const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
           const [existing] = await getDb()
             .select({ count: sql<number>`count(*)::int` })
@@ -65,6 +76,7 @@ export async function POST(request: NextRequest) {
               categoryId: item.categoryId,
               amount: item.amount,
               competenceDate: compDate,
+              receivedDate: compDate,
               accountId: item.accountId,
               memberId: item.memberId,
               description: item.name,

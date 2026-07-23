@@ -10,11 +10,11 @@ export async function GET(request: NextRequest) {
     await requireAuth(request);
 
     const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-    const currentDay = now.getDate();
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59);
+    const month = now.getUTCMonth() + 1;
+    const year = now.getUTCFullYear();
+    const currentDay = now.getUTCDate();
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
+    const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59));
 
     const generated = { incomes: 0, expenses: 0, invoicesPaid: 0 };
 
@@ -23,11 +23,11 @@ export async function GET(request: NextRequest) {
     for (const fi of activeFixedIncomes) {
       try {
         let m = fi.startDate ? new Date(fi.startDate) : new Date(startOfMonth);
-        m = new Date(m.getFullYear(), m.getMonth(), 1);
+        m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
         const last = new Date(endOfMonth);
         while (m <= last) {
           const compDate = new Date(m);
-          const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+          const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
           const [existing] = await getDb()
             .select({ count: sql<number>`count(*)::int` })
             .from(incomes)
@@ -70,21 +70,21 @@ export async function GET(request: NextRequest) {
     for (const rb of pendingBills) {
       try {
         let m = new Date(rb.startDate);
-        m = new Date(m.getFullYear(), m.getMonth(), 1);
+        m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
         const last = rb.endDate
           ? new Date(Math.min(new Date(rb.endDate).getTime(), endOfMonth.getTime()))
           : new Date(endOfMonth);
         while (m <= last) {
-          const isCurrentMonth = m.getFullYear() === year && m.getMonth() === month - 1;
+          const isCurrentMonth = m.getUTCFullYear() === year && m.getUTCMonth() === month - 1;
 
           // Skip current month if dueDay hasn't arrived yet
           if (isCurrentMonth && rb.dueDay > currentDay) {
-            m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+            m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
             continue;
           }
 
           const compDate = new Date(m);
-          const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+          const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
           const [existing] = await getDb()
             .select({ count: sql<number>`count(*)::int` })
             .from(expenses)

@@ -41,12 +41,13 @@ export async function POST(request: NextRequest) {
     if (item.active) {
       try {
         const now = new Date();
-        let m = item.startDate ? new Date(item.startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
-        m = new Date(m.getFullYear(), m.getMonth(), 1);
-        const last = new Date(now.getFullYear(), now.getMonth(), 1);
+        const nowUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()));
+        let m = item.startDate ? new Date(item.startDate) : new Date(nowUtc);
+        m = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth()));
+        const last = new Date(nowUtc);
         while (m <= last) {
           const compDate = new Date(m);
-          const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+          const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
           const [existing] = await getDb()
             .select({ count: sql<number>`count(*)::int` })
             .from(incomes)

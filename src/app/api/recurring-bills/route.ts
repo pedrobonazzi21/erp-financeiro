@@ -45,17 +45,13 @@ export async function POST(request: NextRequest) {
     if (item.status === "pending" && !item.suspended) {
       try {
         const start = new Date(item.startDate);
-        const end = item.endDate ? new Date(item.endDate) : new Date();
+        const end = item.endDate ? new Date(item.endDate) : new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth()));
         if (end >= start) {
-          const yearStart = start.getFullYear();
-          const monthStart = start.getMonth();
-          const yearEnd = end.getFullYear();
-          const monthEnd = end.getMonth();
-          let m = new Date(yearStart, monthStart, 1);
-          const last = new Date(yearEnd, monthEnd, 1);
+          let m = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth()));
+          const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
           while (m <= last) {
             const compDate = new Date(m);
-            const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+            const nextMonth = new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1));
             const [existing] = await getDb()
               .select({ count: sql<number>`count(*)::int` })
               .from(expenses)

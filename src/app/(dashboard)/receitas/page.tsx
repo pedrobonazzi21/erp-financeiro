@@ -94,8 +94,15 @@ export default function ReceitasPage() {
     return map
   }, [members])
 
+  function matchesMonth(dateStr: string | null | undefined, mk: string): boolean {
+    if (!dateStr) return false
+    const d = new Date(dateStr)
+    const [y, m] = mk.split("-").map(Number)
+    return d.getUTCFullYear() === y && d.getUTCMonth() + 1 === m
+  }
+
   const filtered = useMemo(() => {
-    let data = [...incomes].filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey))
+    let data = [...incomes].filter((i) => matchesMonth(i.receivedDate || i.competenceDate, monthKey))
     if (search) {
       const q = search.toLowerCase()
       data = data.filter((i) => {
@@ -112,11 +119,11 @@ export default function ReceitasPage() {
     return data
   }, [incomes, search, statusFilter, sortField, sortDir, categoryMap, monthKey])
 
-  const totalReceived = incomes.filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey) && i.status === "received").reduce((a, b) => a + Number(b.amount), 0)
-  const totalPending = incomes.filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey) && i.status === "pending").reduce((a, b) => a + Number(b.amount), 0)
+  const totalReceived = incomes.filter((i) => matchesMonth(i.receivedDate || i.competenceDate, monthKey) && i.status === "received").reduce((a, b) => a + Number(b.amount), 0)
+  const totalPending = incomes.filter((i) => matchesMonth(i.receivedDate || i.competenceDate, monthKey) && i.status === "pending").reduce((a, b) => a + Number(b.amount), 0)
   const totalThisMonth = useMemo(
     () => incomes
-      .filter((i) => (i.receivedDate || i.competenceDate)?.startsWith(monthKey))
+      .filter((i) => matchesMonth(i.receivedDate || i.competenceDate, monthKey))
       .reduce((a, b) => a + Number(b.amount), 0),
     [incomes, monthKey]
   )

@@ -87,11 +87,12 @@ export default function DashboardPage() {
     for (let i = 0; i < 12; i++) {
       const d = new Date(chartYear, i, 1);
       const monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const [y, m] = monthKey.split("-").map(Number)
       const monthIncomes = incomes
-        .filter(inc => inc.competenceDate?.startsWith(monthKey))
+        .filter(inc => matchesMonth(inc.competenceDate, y, m))
         .reduce((s, inc) => s + Number(inc.amount), 0);
       const monthExpenses = expenses
-        .filter(exp => exp.competenceDate?.startsWith(monthKey))
+        .filter(exp => matchesMonth(exp.competenceDate, y, m))
         .reduce((s, exp) => s + Number(exp.amount), 0);
       data.push({
         month: months[d.getMonth()],
@@ -103,18 +104,24 @@ export default function DashboardPage() {
     return data;
   }, [incomes, expenses, chartYear]);
 
+  function matchesMonth(dateStr: string | null | undefined, y: number, m: number): boolean {
+    if (!dateStr) return false
+    const d = new Date(dateStr)
+    return d.getUTCFullYear() === y && d.getUTCMonth() + 1 === m
+  }
+
   const mockMonthIncome = useMemo(
     () => incomes
-      .filter(inc => inc.competenceDate?.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+      .filter(inc => matchesMonth(inc.competenceDate, currentYear, currentMonth + 1))
       .reduce((s, inc) => s + Number(inc.amount), 0),
-    [incomes]
+    [incomes, currentYear, currentMonth]
   );
 
   const mockMonthExpense = useMemo(
     () => expenses
-      .filter(exp => exp.competenceDate?.startsWith(`${currentYear}-${String(currentMonth+1).padStart(2,'0')}`))
+      .filter(exp => matchesMonth(exp.competenceDate, currentYear, currentMonth + 1))
       .reduce((s, exp) => s + Number(exp.amount), 0),
-    [expenses]
+    [expenses, currentYear, currentMonth]
   );
 
   const mockBalance = useMemo(

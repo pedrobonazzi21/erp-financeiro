@@ -109,8 +109,15 @@ export default function DespesasPage() {
     return map
   }, [members])
 
+  function matchesMonth(dateStr: string | null | undefined, mk: string): boolean {
+    if (!dateStr) return false
+    const d = new Date(dateStr)
+    const [y, m] = mk.split("-").map(Number)
+    return d.getUTCFullYear() === y && d.getUTCMonth() + 1 === m
+  }
+
   const filtered = useMemo(() => {
-    let data = [...expenses].filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey))
+    let data = [...expenses].filter((e) => matchesMonth(e.paidDate || e.competenceDate, monthKey))
     if (search) {
       const q = search.toLowerCase()
       data = data.filter((e) => {
@@ -129,12 +136,12 @@ export default function DespesasPage() {
 
   const totalThisMonth = useMemo(
     () => expenses
-      .filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey))
+      .filter((e) => matchesMonth(e.paidDate || e.competenceDate, monthKey))
       .reduce((a, b) => a + Number(b.amount), 0),
     [expenses, monthKey]
   )
-  const totalPaid = expenses.filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey) && e.status === "paid").reduce((a, b) => a + Number(b.amount), 0)
-  const totalPending = expenses.filter((e) => (e.paidDate || e.competenceDate)?.startsWith(monthKey) && (e.status === "pending" || e.status === "overdue")).reduce((a, b) => a + Number(b.amount), 0)
+  const totalPaid = expenses.filter((e) => matchesMonth(e.paidDate || e.competenceDate, monthKey) && e.status === "paid").reduce((a, b) => a + Number(b.amount), 0)
+  const totalPending = expenses.filter((e) => matchesMonth(e.paidDate || e.competenceDate, monthKey) && (e.status === "pending" || e.status === "overdue")).reduce((a, b) => a + Number(b.amount), 0)
 
   function toggleSort(field: "paidDate" | "amount") {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"))

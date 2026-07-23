@@ -43,10 +43,13 @@ export function LoginForm() {
       const result = await signIn(email, password)
       const idToken = await result.user.getIdToken()
 
-      const res = await fetch("/api/auth/[...all]", {
+      const res = await fetch("/api/auth", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-Token": btoa(idToken),
+        },
+        body: JSON.stringify({}),
       })
 
       if (!res.ok) {

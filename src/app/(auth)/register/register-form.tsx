@@ -54,10 +54,13 @@ export function RegisterForm() {
       const result = await signUp(name, email, password)
       const idToken = await result.user.getIdToken()
 
-      const res = await fetch("/api/auth/[...all]", {
+      const res = await fetch("/api/auth", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, name }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-Token": btoa(idToken),
+        },
+        body: JSON.stringify({ name }),
       })
 
       if (!res.ok) {
